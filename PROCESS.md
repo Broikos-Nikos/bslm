@@ -535,6 +535,53 @@ itself: during training downtime or once the model is done. Next block of
 work is therefore stage 5 of `OWN_MODEL.md`, the trajectory corpus with
 real tool results, then the loop (stage 6) and the agent benchmark (stage 7).
 
+**Stage 5 starts (2026-09-07, 00:10).** The owner said: continue work on the
+model, train what needs to be done. Design, fixed before code:
+
+- One plain text protocol the decoder learns, no chat template, no special
+  tokens beyond the pretraining end of text: a header line with the date
+  and the soul facts, then `User:`, and the model's own lines `Plan:`,
+  `Act:`, `Judge:`, `Ask:`, `Deliver:`; the environment answers every
+  `Act:` with a `Result:` block. Loss only on the model's lines.
+- Actions are the model's hands from stage 6: `search`, `open`, `weather`,
+  `youtube`, `library`, `play`, the local skills (timer, alarm, reminders,
+  lists, notes, calendar, calc, convert, time, lights, device, volume) and
+  `ask`. The same Python functions produce the results in the generator
+  and in the runtime, so the training results are real by construction.
+- Real sources, all free and keyless: Wikidata SPARQL for about 30k facts
+  over a dozen relations (capitals, heads of government, birth years,
+  directors, authors, heights, populations, currencies, languages), the
+  Wikipedia search API for the result lists and page extracts (DuckDuckGo
+  is rate limited to nothing at this volume), YouTube result pages for
+  songs from Wikidata, Open-Meteo for hourly forecasts, and the skills
+  module with a fresh state file per trajectory for the local tools.
+- Failures are real, not simulated: a bad first query is really run and
+  really returns the wrong list, the judgement sentence is written by the
+  generator that knows the truth, and the recovery is a real second call.
+  Target mix 40% first try, 35% one retry, 20% two, 5% honest give up.
+- Fine tune the 72m 10B checkpoint on the trajectories with a loss mask
+  (`pretrain/sft.py`), export to GGUF, and measure with a new agent
+  benchmark (`bslm/agent_bench.py`) on held out facts, songs, compound
+  requests and the umbrella scenario, with the four loop metrics from
+  stage 7. Local GPU only.
+
+**Stage 5 built (2026-09-07, 00:10 to 22:30).** New code: `pretrain/agent_tools.py`
+(the model's hands: Wikipedia search and extracts, Open-Meteo, YouTube
+result pages, the local skills behind one `Env.act()` that both the
+generator and the runtime call), `pretrain/facts.py` (facts with known
+answers), `pretrain/trajectories.py` (the generator and the protocol),
+`pretrain/sft.py` (masked fine tune), `bslm/agent.py` (the runtime: turn
+taking over llama-server's completion endpoint, generation stops before any
+`Result:` so results only ever come from the environment), `bslm/agent_bench.py`
+(stage 7 metrics), `pretrain/agent_pipeline.sh` (all of it in one run).
+Two source changes forced by reality: the Wikidata query service was rate
+limited to one request a minute (an outage rule), so facts come from
+DBpedia's endpoint with the number of language labels as the fame filter;
+that endpoint returns partial pages for heavy group queries, so the first
+round has about 20k facts instead of the planned 50k, enough for a first
+model, to be topped up later. Python's Windows certificate store rejected
+the Wikimedia chain, so every fetch uses certifi's bundle.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
