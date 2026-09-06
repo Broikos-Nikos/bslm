@@ -76,3 +76,26 @@ the benchmark on 4 threads, prints the numbers and cleans up.
    version on the PC stops changing.
 4. Only if the phone numbers disappoint: ExecuTorch with the QNN delegate for
    the NPU, at the cost of a second export path.
+
+## How the shells reach real apps
+
+The model never touches an app. It emits a tool call (name and arguments),
+the shell runs it through the platform's own interface and hands the result
+back as text, and the loop judges that text. Every tool below returns text,
+so the retry loop works on all of them.
+
+| task | Android | Windows |
+|---|---|---|
+| alarm, timer | `AlarmClock.ACTION_SET_ALARM` and `ACTION_SET_TIMER` intents to the stock clock app, no permission, `EXTRA_SKIP_UI` for silent setting | own scheduler in the service, Windows toast at fire time |
+| web answer ("who is ...") | HTTP fetch of a search results page inside the app (what `bslm/reasoner.py` does with DuckDuckGo), read 2 or 3 results, answer; `ACTION_WEB_SEARCH` only when the user wants the browser | same fetch, same parser |
+| YouTube song | search through the YouTube Data API (free key) or the results page, pick the match, play with a `vnd.youtube:<id>` intent, which opens the YouTube app on that video | open the watch URL in the default browser |
+| local music | `MediaStore` query (`READ_MEDIA_AUDIO`), verify the title, play with `MediaPlayer` or hand the file to the player app | scan the music folder, hand to the default player |
+| agenda | `CalendarContract` (`READ_CALENDAR`, `WRITE_CALENDAR`) for reading the day and inserting events | Google Calendar or Outlook API |
+| weather before a meeting | Open-Meteo over HTTP, no key, location from the fused location provider | same, location from the Windows location API |
+| contacts, calls, messages | `ContactsContract`, `ACTION_CALL` (`CALL_PHONE`), `SmsManager` (`SEND_SMS`) | not on the PC |
+| navigation | `google.navigation:q=` or `geo:` intent to the maps app | maps URL in the browser |
+| clicking through a page | a `WebView` the app owns: the model sees a simplified page outline and clicks by element, which is what "know what a click is" means in practice | the same idea with a browser automation library |
+| driving another app's screen | an `AccessibilityService` (user grants it once) can read and tap any app's UI; powerful, slow, last resort | UI Automation API, same status |
+
+Permissions the user grants once at install: media, calendar, location,
+phone and SMS as needed; alarms, web fetches, YouTube and maps need none.

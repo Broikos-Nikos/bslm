@@ -4,6 +4,7 @@
 # phone/bin/ holds llama-bench and its shared libraries from the llama.cpp
 # Android arm64 release (b10809); the GGUF files come from models/.
 set -uo pipefail
+export MSYS_NO_PATHCONV=1   # Git Bash on Windows would rewrite /data/local/tmp into a C: path
 ROOT="${BSLM_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 ADB="${ADB:-adb}"
 DEV=/data/local/tmp/bslm

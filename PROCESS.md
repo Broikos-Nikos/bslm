@@ -492,6 +492,25 @@ kept only as a file for the phone benchmark. Target phones: a Poco F3
 path only. `phone/bench_phone.sh` benchmarks over adb with the prebuilt
 Android arm64 llama.cpp; it needs the phone attached with USB debugging.
 
+**Emulator check (2026-09-06).** The owner has Android Studio AVDs (an
+x86_64 Android 16 image named after the Poco F3). It boots headless and
+carries arm64 translation (`ndk_translation`, binfmt_misc), but the
+translated linker refuses the release's shared libraries from
+`/data/local/tmp` even with `LD_LIBRARY_PATH` or a patched `RUNPATH`, so
+the prebuilt arm64 `llama-bench` cannot run there. The emulator is for
+functional tests of the app built for x86_64 with the NDK; speed numbers
+come only from the phone, since the emulator reports an "Android virtual
+processor" running translated code. Lesson: the AVDs are configured with
+6 GB of guest RAM, which starved the host (68 MB available) next to the
+other local workload; always launch with `-memory 1536 -cores 2`, kill the
+emulator right after the test, and check available host memory first.
+
+**How the shells reach real apps (2026-09-06).** Documented in `RUNTIME.md`:
+the model only emits tool calls; alarms, timers, web answers, YouTube,
+local music, agenda, weather, contacts, navigation and page clicking each
+map to an Android intent, content provider, HTTP fetch or a WebView, and to
+the Windows equivalent on the PC.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
