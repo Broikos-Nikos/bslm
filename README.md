@@ -41,7 +41,8 @@ pretrain/           the own language model: data.py (corpus to tokens, own 16k B
                     export_gguf.py, chat_audit.py, remote/ (push, bootstrap, pull
                     for a rented GPU), overnight.ps1 and day72m.ps1 (restart loops),
                     resume_when_free.ps1 (wait for a free card, then relaunch)
-AUDIT.md            five audit passes over the whole repo, findings and fixes
+AUDIT.md            ten audit passes over the whole repo, findings and fixes
+RUNTIME.md          how the model runs on the PC and on Android, options and the pick
 gui.py              tiny window with a 30 message memory and a soul (data/soul.json);
                     --send drives the open window from a terminal (testing)
 bslm/reasoner.py    tool layer and agent loop over llama.cpp, model agnostic

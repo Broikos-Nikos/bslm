@@ -482,6 +482,8 @@ the corpus, chat exports and the audit report, credentials, the GUI's
 memory and soul, all excluded by `.gitignore`. Weights can go to a GitHub
 release later if wanted (Q8 files are 60 to 78 MB).
 
+**Runtime options (17:00).** Asked for wrappers for the PC and an Android phone with performance first. `RUNTIME.md` compares llama.cpp, ExecuTorch, MLC LLM, ONNX Runtime GenAI, MediaPipe, a Rust shared core and cross platform plugins; the pick is llama.cpp as the single core with two thin shells and a shared brain library later, Q8 on the PC and Q4_0 measured against Q8 on the phone. First step is a ten minute `llama-bench` on the actual phone.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
