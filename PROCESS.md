@@ -471,6 +471,17 @@ pod, 28.51 after, 19.16 USD in all, about 15 for the run and 4 for the
 setup detours. Per his decision this morning that is the last rented run
 unless a measured case says otherwise.
 
+**Published (16:30).** Repository pushed to GitHub as the author's own
+work, no AI co author line, commits under a GitHub no reply address.
+Before the push: the author's name, personal facts and any chat derived
+detail were replaced by neutral wording in every tracked file, and a scan
+of the tracked tree for names, email addresses and secrets found nothing.
+What is on GitHub: code, docs, both tokenizers, the label list, the
+benchmark reports, this log. What is not: model weights and checkpoints,
+the corpus, chat exports and the audit report, credentials, the GUI's
+memory and soul, all excluded by `.gitignore`. Weights can go to a GitHub
+release later if wanted (Q8 files are 60 to 78 MB).
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
