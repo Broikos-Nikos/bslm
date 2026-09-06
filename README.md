@@ -183,3 +183,10 @@ keyword.
 The right production shape is this model in front, and a frontier model behind
 it for everything that falls into out of scope. The small model handles the
 80% of traffic that is a fixed command, in a millisecond, offline, for free.
+
+## The loop (stage 5 to 7)
+
+- `pretrain/agent_tools.py`: the model's hands, real tools behind one `Env.act()`.
+- `pretrain/facts.py`, `pretrain/trajectories.py`: facts with known answers, the trajectory generator with real results and real failures.
+- `pretrain/sft.py`: fine tune with loss only on the model's lines; `pretrain/agent_pipeline.sh` runs generation, fine tune, export and benchmark.
+- `bslm/agent.py`: the runtime (turn taking over llama-server); `bslm/agent_bench.py` writes `AGENT_BENCHMARK.md`.

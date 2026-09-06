@@ -582,6 +582,28 @@ round has about 20k facts instead of the planned 50k, enough for a first
 model, to be topped up later. Python's Windows certificate store rejected
 the Wikimedia chain, so every fetch uses certifi's bundle.
 
+**Round one of the loop model (2026-09-07, 02:15).** Generated 27,716
+trajectories in 3.3 hours (8,775 facts, 667 songs, 14,000 local, 1,774
+compound, 1,500 weather, 1,000 small talk; 24,816 train, 1,046 val, 1,854
+held out tasks; 7.5M tokens, 24% of them the model's own lines). Wikipedia
+rate limits set the pace: after a 429 burst the tools were changed to one
+request every 0.8 s with backoff, the vague first queries moved to DBpedia
+Lookup. Fine tune of the 72m 10B checkpoint: 195 steps, 12 minutes, val
+loss 0.037. `AGENT_BENCHMARK.md` (350 held out tasks, 3 minutes on the
+CPU): **90.9% overall**; compound 100%, local 100%, small talk 100%, songs
+88.3%, weather 86.7%, **facts 71.7% (fails the bar)**. Loop metrics:
+recovery 78.7% (bar 80), false delivery 4.3% (bar under 3), wasted steps
+0.2%, honest give up 88.9% (bar 95). What the misses say: the 72M model
+garbles long names when it copies them into a query ("Metisz Adamek",
+"Willie Pepep"), it sometimes picks the wrong span from a snippet ("was
+written by Peter Jackson", from the film's page), and it gives up too
+readily, which traces to the data: 37% of the generated fact trajectories
+were give ups because DBpedia's obscure subjects are often not findable
+by our own procedure. Round two: cap the give ups at about 7%, add the
+relations that came back empty (birth and death years, heights, founding
+years) through a subquery form the endpoint answers completely, raise the
+fact share and cut the local share (14,000 to 6,000, it is at 100%).
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

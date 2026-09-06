@@ -246,6 +246,10 @@ def fact_traj(fact, rng, now, home, soul, shape):
     queries.append(good)
     truth = {"family": "fact", "rel": rel, "subject": s, "answer": a, "user": q_user}
     for qi, q in enumerate(queries):
+        if shape == "bad_first" and qi == 0:
+            # the vague query is served by DBpedia Lookup: real, noisy, and it
+            # spares Wikipedia's rate limit for the query that has to succeed
+            env.next_backend = "lookup"
         r = t.act(env, f'search("{q}")')
         items = env.last_results
         if items and "error" in items[0]:
@@ -658,6 +662,14 @@ def build(args):
     places = [json.loads(l) for l in (AGENT / "places.jsonl").open(encoding="utf-8")]
     rng.shuffle(facts)
     rng.shuffle(songs)
+    # facts whose good query is already cached go first: a rerun then spends
+    # its Wikipedia budget only on new facts
+    from .agent_tools import cache
+    sc = cache("search")
+    cached = [f for f in facts if sc.get(f"5|{f['subject']} {KEY[f['rel']]}".lower()) is not None]
+    fresh = [f for f in facts if sc.get(f"5|{f['subject']} {KEY[f['rel']]}".lower()) is None]
+    facts = cached + fresh
+    print(f"facts: {len(cached)} with cached searches, {len(fresh)} new", flush=True)
     library_pool = [f"{s['title']} - {s['artist']}" for s in songs]
     base_now = datetime.now().replace(second=0, microsecond=0)
 
@@ -696,6 +708,11 @@ def build(args):
             t, truth = fact_traj(f, r, now, home, soul, shape)
         except Exception as e:      # noqa: BLE001
             stats["fact_error"] = stats.get("fact_error", 0) + 1
+            return
+        if truth and truth.get("answer") is None and r.random() > args.giveup_keep:
+            # facts our own procedure cannot find are common with obscure
+            # subjects; keep only enough of them for the honest give up lesson
+            stats["giveup_dropped"] = stats.get("giveup_dropped", 0) + 1
             return
         keep(t, truth, "test" if i < n_test else ("val" if i < n_test + n_facts // 50 else "train"))
 
@@ -803,6 +820,7 @@ def main():
     ap.add_argument("--yt_delay", type=float, default=0.4)
     ap.add_argument("--max_chars", type=int, default=3600)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--giveup_keep", type=float, default=0.15, help="share of unfindable facts kept as honest give ups")
     build(ap.parse_args())
 
 

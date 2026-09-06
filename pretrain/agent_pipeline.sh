@@ -22,10 +22,17 @@ done
 grep -q "^places:" corpus/agent/facts.log || { say "fact fetch did not finish, stopping"; exit 1; }
 say "facts: $(wc -l < corpus/agent/facts.jsonl) songs: $(wc -l < corpus/agent/songs.jsonl) places: $(wc -l < corpus/agent/places.jsonl)"
 
-say "trajectories"
-$PY -u -m pretrain.trajectories --facts "${FACTS:-20000}" --songs "${SONGS:-3000}" --local "${LOCAL:-14000}" \
-    --compound "${COMPOUND:-3000}" --umbrella "${UMBRELLA:-1500}" --other "${OTHER:-1000}" --workers 8 \
-    > corpus/agent/gen.log 2>&1 || { say "generator failed, see corpus/agent/gen.log"; tail -5 corpus/agent/gen.log; exit 1; }
+if [ "${SKIP_GEN:-0}" = "1" ]; then
+  # a generator started earlier is still running: wait for its last line
+  say "waiting for the running generator"
+  for i in $(seq 1 720); do grep -q "^test:" corpus/agent/gen.log 2>/dev/null && break; sleep 30; done
+  grep -q "^test:" corpus/agent/gen.log || { say "generator did not finish"; exit 1; }
+else
+  say "trajectories"
+  $PY -u -m pretrain.trajectories --facts "${FACTS:-20000}" --songs "${SONGS:-3000}" --local "${LOCAL:-14000}" \
+      --compound "${COMPOUND:-3000}" --umbrella "${UMBRELLA:-1500}" --other "${OTHER:-1000}" --workers 8 \
+      > corpus/agent/gen.log 2>&1 || { say "generator failed, see corpus/agent/gen.log"; tail -5 corpus/agent/gen.log; exit 1; }
+fi
 tail -4 corpus/agent/gen.log | tee -a "$LOG"
 
 say "fine tune"
@@ -39,7 +46,7 @@ $PY -m pretrain.export_gguf --name "$RUN" >> "$LOG" 2>&1 || { say "export failed
 say "gguf: $(du -m models/$RUN-q8.gguf | cut -f1) MB"
 
 say "agent benchmark"
-BSLM_GGUF="models/$RUN-q8.gguf" $PY -u -m bslm.agent_bench --limit "${LIMIT:-100}" > corpus/agent/bench.log 2>&1 \
+BSLM_GGUF="models/$RUN-q8.gguf" BSLM_LLM_THREADS="${THREADS:-8}" $PY -u -m bslm.agent_bench --limit "${LIMIT:-100}" > corpus/agent/bench.log 2>&1 \
     || { say "benchmark failed, see corpus/agent/bench.log"; tail -5 corpus/agent/bench.log; exit 1; }
 tail -2 corpus/agent/bench.log | tee -a "$LOG"
 say "pipeline done"

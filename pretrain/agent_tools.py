@@ -30,6 +30,7 @@ import json
 import re
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta
@@ -92,18 +93,57 @@ def ssl_context():
 _CTX = ssl_context()
 
 
+_throttle = {"lock": threading.Lock(), "last": 0.0, "api_blocked_until": 0.0}
+WIKI_INTERVAL = float(__import__("os").environ.get("BSLM_WIKI_INTERVAL", "0.8"))   # seconds between Wikipedia requests, all threads
+
+
+def _polite(url):
+    """Wikimedia asks for a few requests per second at most, serially; one
+    global gap between requests to their hosts keeps every thread in line."""
+    if "wikipedia.org" not in url:
+        return
+    with _throttle["lock"]:
+        wait = _throttle["last"] + WIKI_INTERVAL - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        _throttle["last"] = time.time()
+
+
+class RateLimited(RuntimeError):
+    pass
+
+
 def _get(url, headers=None, timeout=20, tries=3):
     h = {"User-Agent": UA, "Accept-Language": "en"}
     h.update(headers or {})
     err = None
     for i in range(tries):
         try:
+            _polite(url)
             req = urllib.request.Request(url, headers=h)
             return urllib.request.urlopen(req, timeout=timeout, context=_CTX).read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                # back off hard, the limit is per client and shared by every thread
+                if i + 1 < tries:
+                    time.sleep(4 * 2 ** i)
+                    continue
+                raise RateLimited(f"429 from {url.split('/')[2]}")
+            err = e
+            time.sleep(1.5 * (i + 1))
         except Exception as e:      # noqa: BLE001
             err = e
             time.sleep(1.5 * (i + 1))
     raise RuntimeError(f"fetch failed: {err}")
+
+
+def api_ok():
+    return time.time() >= _throttle["api_blocked_until"]
+
+
+def api_blocked():
+    """After a 429 the API stays off for half an hour; the HTML pages carry on."""
+    _throttle["api_blocked_until"] = time.time() + 1800
 
 
 def _clean(s):
@@ -111,22 +151,63 @@ def _clean(s):
 
 
 # ---------------------------------------------------------------- search and open
-def wiki_search(query, n=5):
+def lookup_search(query, n=5):
+    """DBpedia Lookup: a keyword search over Wikipedia articles, same result
+    shape, no rate limit worth mentioning, weaker ranking. Cached."""
+    key = f"lookup|{n}|{query.strip().lower()}"
+    c = cache("search")
+    hit = c.get(key)
+    if hit is not None:
+        return hit
+    url = "https://lookup.dbpedia.org/api/search?" + urllib.parse.urlencode({"query": query, "maxResults": n, "format": "JSON"})
+    try:
+        docs = json.loads(_get(url, headers={"Accept": "application/json"})).get("docs", [])
+        items = []
+        for d in docs[:n]:
+            res = (d.get("resource") or [""])[0]
+            title = _clean((d.get("label") or [res.rsplit("/", 1)[-1].replace("_", " ")])[0])
+            items.append({"title": title, "snippet": _clean((d.get("comment") or [""])[0])[:260],
+                          "url": "https://en.wikipedia.org/wiki/" + res.rsplit("/", 1)[-1]})
+    except Exception as e:      # noqa: BLE001
+        return [{"error": str(e)}]
+    return c.put(key, items)
+
+
+def wiki_search(query, n=5, backend=None):
     """Result list in web search shape: title, snippet, url. Cached."""
+    if backend == "lookup":
+        return lookup_search(query, n)
     key = f"{n}|{query.strip().lower()}"
     c = cache("search")
     hit = c.get(key)
     if hit is not None:
         return hit
-    url = ("https://en.wikipedia.org/w/api.php?action=query&list=search&format=json"
-           f"&srlimit={n}&srsearch=" + urllib.parse.quote_plus(query))
-    try:
-        data = json.loads(_get(url))
-        items = [{"title": r["title"], "snippet": _clean(r.get("snippet", "")),
-                  "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(r["title"].replace(" ", "_"))}
-                 for r in data.get("query", {}).get("search", [])]
-    except Exception as e:      # noqa: BLE001
-        return [{"error": str(e)}]
+    items = None
+    if api_ok():
+        url = ("https://en.wikipedia.org/w/api.php?action=query&list=search&format=json"
+               f"&srlimit={n}&srsearch=" + urllib.parse.quote_plus(query))
+        try:
+            data = json.loads(_get(url))
+            items = [{"title": r["title"], "snippet": _clean(r.get("snippet", "")),
+                      "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(r["title"].replace(" ", "_"))}
+                     for r in data.get("query", {}).get("search", [])]
+        except RateLimited:
+            api_blocked()
+        except Exception as e:      # noqa: BLE001
+            return [{"error": str(e)}]
+    if items is None:
+        # the same search through the site's own results page, which is not
+        # under the API's rate limit rule
+        url = "https://en.wikipedia.org/w/index.php?" + urllib.parse.urlencode(
+            {"search": query, "fulltext": 1, "ns0": 1, "limit": n})
+        try:
+            page = _get(url, headers={"Accept": "text/html"})
+            heads = re.findall(r'<div class="mw-search-result-heading"><a href="/wiki/([^"]+)"[^>]*>(.*?)</a>', page, re.S)
+            snips = re.findall(r'<div class="searchresult">(.*?)</div>', page, re.S)
+            items = [{"title": _clean(t), "snippet": _clean(sn), "url": "https://en.wikipedia.org/wiki/" + h}
+                     for (h, t), sn in zip(heads, snips)][:n]
+        except Exception as e:      # noqa: BLE001
+            return [{"error": str(e)}]
     return c.put(key, items)
 
 
@@ -137,14 +218,32 @@ def wiki_extract(title, chars=1200):
     hit = c.get(key)
     if hit is not None:
         return hit
-    url = ("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1"
-           f"&exchars={chars}&format=json&redirects=1&titles=" + urllib.parse.quote(title))
-    try:
-        pages = json.loads(_get(url))["query"]["pages"]
-        text = next(iter(pages.values())).get("extract", "") or ""
-        text = re.sub(r"\s+", " ", text).strip()
-    except Exception as e:      # noqa: BLE001
-        text = f"could not open the page: {e}"
+    text = None
+    if api_ok():
+        url = ("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1"
+               f"&exchars={chars}&format=json&redirects=1&titles=" + urllib.parse.quote(title))
+        try:
+            pages = json.loads(_get(url))["query"]["pages"]
+            text = next(iter(pages.values())).get("extract", "") or ""
+            text = re.sub(r"\s+", " ", text).strip()
+        except RateLimited:
+            api_blocked()
+        except Exception as e:      # noqa: BLE001
+            text = f"could not open the page: {e}"
+    if text is None:
+        # the mobile article page, lead paragraphs only
+        url = "https://en.m.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_"))
+        try:
+            page = _get(url, headers={"Accept": "text/html"})
+            m = re.search(r'<div class="mw-parser-output">(.*)', page, re.S)
+            body = (m.group(1) if m else page).split("<h2", 1)[0]
+            paras = [_clean(p) for p in re.findall(r"<p[^>]*>(.*?)</p>", body, re.S)]
+            text = re.sub(r"\[\d+\]", "", " ".join(p for p in paras if p))
+            text = re.sub(r"\s+", " ", text).strip()[:chars]
+        except Exception as e:      # noqa: BLE001
+            text = f"could not open the page: {e}"
+    if text.startswith("could not open"):
+        return text            # not cached, so a later run can retry
     return c.put(key, text)
 
 
@@ -352,6 +451,7 @@ class Env:
         self.last_library = []
         self.last_list = None       # "youtube" or "library"
         self.playing = None
+        self.next_backend = None    # the generator routes one search elsewhere
 
     # helpers
     def _nth(self, items, n, what):
@@ -381,7 +481,8 @@ class Env:
         if name == "search":
             if not self.online:
                 return "search failed: offline"
-            self.last_results = wiki_search(g(0))
+            self.last_results = wiki_search(g(0), backend=self.next_backend)
+            self.next_backend = None
             return fmt_results(self.last_results)
         if name == "open":
             if self.last_results and "error" in self.last_results[0]:

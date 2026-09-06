@@ -151,6 +151,22 @@ Around 100k trajectories, fine tuned for one epoch. This is supervised
 learning on data whose labels come from databases and rules, which is the
 same thing the 5M model did, one level up.
 
+### As built (2026-09-07)
+
+`pretrain/trajectories.py` is the generator, `pretrain/agent_tools.py` the
+hands, `pretrain/facts.py` the facts. Differences from the plan above, all
+forced by what the free sources allow: facts come from DBpedia (about 22k in
+the first round, the Wikidata query service was rate limited to one request
+a minute), search results from Wikipedia's search (API, with the site's own
+results page as the fallback when the API answers 429), page text from the
+article's lead paragraphs, songs from DBpedia singles (667 with a known
+performer), forecasts from Open-Meteo. The protocol is plain text: a header
+with the date and the soul facts, `User:`, and the model's `Plan:`, `Act:`,
+`Judge:`, `Ask:`, `Deliver:` lines, with `Result:` blocks written by the
+environment. The fine tune (`pretrain/sft.py`) puts loss only on the model's
+lines. The runtime (`bslm/agent.py`) stops generation before any `Result:`
+and runs the action for real, so the model can never invent a result.
+
 ## Stage 6. The loop: try, judge, retry, deliver
 
 This is the intelligence you asked for, and it is trained, not scripted. The

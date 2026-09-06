@@ -42,9 +42,11 @@ DBPEDIA = {
     "height": ("?s a dbo:Mountain; dbo:elevation ?av.", 15, 3000),
     "founded": ("?s a dbo:Company; dbo:foundingYear ?av.", 25, 3000),
     "developer": ("?s a dbo:Software; dbo:developer ?a.", 20, 3000),
+    "birthplace": ("?s a dbo:Person; dbo:birthPlace ?a. ?a a dbo:City.", 40, 5000),
     "born_year": ("?s a dbo:Person; dbo:birthDate ?av.", 40, 9000),
     "died_year": ("?s a dbo:Person; dbo:deathDate ?av.", 40, 5000),
-    "birthplace": ("?s a dbo:Person; dbo:birthPlace ?a. ?a a dbo:City.", 40, 5000),
+    "height": ("?s a dbo:Mountain; dbo:elevation ?av.", 15, 3000),
+    "founded": ("?s a dbo:Company; dbo:foundingYear ?av.", 25, 3000),
 }
 # the sport is the class of the athlete; the answer gets aliases for the judge
 SPORTS = {"dbo:TennisPlayer": ("tennis", ["tennis"]), "dbo:BasketballPlayer": ("basketball", ["basketball"]),
@@ -77,14 +79,17 @@ def query(endpoint, q, timeout=120):
 
 def dbp_rows(pattern, min_labels, want, page=2000):
     """Rows of (subject label, answer) for subjects with at least min_labels
-    language labels; GROUP BY does the counting on the server."""
+    language labels. The count runs in a subquery over the class alone, which
+    the endpoint answers completely; the flat GROUP BY form came back partial."""
     literal = "?av" in pattern
+    cls = re.search(r"\?s a (dbo:\w+)", pattern).group(1)
+    rest = re.sub(r"\?s a dbo:\w+;?\s*", "?s ", pattern, count=1)
     sel = "?sl ?av" if literal else "?sl ?al"
     labels = "?s rdfs:label ?sl. FILTER(lang(?sl)='en')" if literal else f"?s rdfs:label ?sl. ?a rdfs:label ?al. {EN}"
+    sub = f"{{ SELECT ?s (COUNT(?l) AS ?n) WHERE {{ ?s a {cls}; rdfs:label ?l }} GROUP BY ?s HAVING (COUNT(?l) >= {min_labels}) }}"
     out, off = [], 0
     while off < want:
-        q = (f"SELECT {sel} (COUNT(?l) AS ?n) WHERE {{ {pattern} ?s rdfs:label ?l. {labels} }} "
-             f"GROUP BY {sel} HAVING (COUNT(?l) >= {min_labels}) LIMIT {page} OFFSET {off}")
+        q = f"SELECT {sel} WHERE {{ {sub} {rest} {labels} }} LIMIT {page} OFFSET {off}"
         try:
             got = query(DBP, q)
         except Exception as e:      # noqa: BLE001
@@ -116,8 +121,14 @@ def year_of(v):
 
 
 def main():
+    import sys
+    append = "--append" in sys.argv          # only relations not in the file yet
     OUT.mkdir(parents=True, exist_ok=True)
-    f = (OUT / "facts.jsonl").open("w", encoding="utf-8")
+    have = set()
+    if append and (OUT / "facts.jsonl").exists():
+        have = {json.loads(l)["rel"] for l in (OUT / "facts.jsonl").open(encoding="utf-8")}
+        log("append mode, have:", sorted(have))
+    f = (OUT / "facts.jsonl").open("a" if append else "w", encoding="utf-8")
     seen, total = set(), 0
 
     def emit(rel, subj, ans, aliases=None):
@@ -131,6 +142,8 @@ def main():
         return 1
 
     for rel, (pattern, min_labels, want) in DBPEDIA.items():
+        if rel in have:
+            continue
         t0 = time.time()
         got, literal = dbp_rows(pattern, min_labels, want)
         n = 0
@@ -154,7 +167,7 @@ def main():
         log(f"{rel:16s} {n:5d} facts  {time.time() - t0:5.0f}s  total {total}")
 
     t0, n = time.time(), 0
-    for cls, (sport, aliases) in SPORTS.items():
+    for cls, (sport, aliases) in ({} if "sport" in have else SPORTS).items():
         got, _ = dbp_rows(f"?s a {cls}. BIND('x' AS ?av)", 30, 500, page=500)
         for r in got:
             n += emit("sport", r["sl"]["value"], sport, aliases)
@@ -162,6 +175,8 @@ def main():
     log(f"{'sport':16s} {n:5d} facts  {time.time() - t0:5.0f}s  total {total}")
 
     for rel, q in WIKIDATA.items():
+        if rel in have or append:
+            continue
         t0, n = time.time(), 0
         try:
             got = query(WDQS, q)
@@ -173,6 +188,9 @@ def main():
         log(f"{rel:16s} {n:5d} facts  {time.time() - t0:5.0f}s  total {total}")
         time.sleep(65)
     f.close()
+    if append:
+        log("total", total)
+        return
 
     # songs: title and performer
     got, _ = dbp_rows("?s a dbo:Single; dbo:artist ?a.", 12, 6000)

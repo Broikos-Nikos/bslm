@@ -67,7 +67,8 @@ def greedy(model, tok, prompt, max_new=120, stop=("\nResult:", "\nUser:")):
     x = torch.tensor([ids], device="cuda")
     out = []
     for _ in range(max_new):
-        logits = model(x[:, -model.cfg.seq:])[0] if isinstance(model(x[:, -model.cfg.seq:]), tuple) else model(x[:, -model.cfg.seq:])
+        res = model(x[:, -model.cfg.seq:])
+        logits = res[0] if isinstance(res, tuple) else res
         nxt = int(logits[0, -1].argmax())
         if nxt == EOT_ID:
             break
