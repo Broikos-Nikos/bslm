@@ -520,6 +520,15 @@ generation tokens per second at Q8_0, meaningless for a phone, they only
 prove the path). The emulator ran with a 1.5 GB guest and was shut down
 right after; the arm64 build for the Poco F3 follows.
 
+**arm64 phone binaries built (2026-09-06, 23:10).** `phone/build_android.sh
+arm64-v8a` produced static, stripped `llama-bench` (5.2 MB) and
+`llama-completion` (7.3 MB) for armv8.2 with dotprod and fp16 and the
+KleidiAI kernels, the baseline that covers the Poco F3 and weaker 2026
+phones alike. The mingw cmake cannot download KleidiAI (no certificate
+bundle), so the script fetches it with curl and checks the md5 before
+handing it to cmake. Everything for the phone measurement is in place;
+the only remaining step is the phone on USB with debugging enabled.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

@@ -26,6 +26,18 @@ if [ "$ABI" = "arm64-v8a" ]; then
   # the same binary also runs on weaker 2026 phones; KleidiAI picks the
   # dotprod kernels for Q8_0 and Q4_0.
   FLAGS+=(-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16 -DGGML_CPU_KLEIDIAI=ON)
+  # cmake's own downloader has no CA bundle here, so fetch KleidiAI with curl
+  # (tag and md5 from ggml/src/ggml-cpu/CMakeLists.txt) and hand it to FetchContent.
+  KTAG=$(grep -o 'KLEIDIAI_COMMIT_TAG "[^"]*"' "$ROOT/tools/llama.cpp-src/ggml/src/ggml-cpu/CMakeLists.txt" | head -1 | cut -d'"' -f2)
+  KMD5=$(grep -o 'KLEIDIAI_RELEASE_ARCHIVE_MD5  *"[^"]*"' "$ROOT/tools/llama.cpp-src/ggml/src/ggml-cpu/CMakeLists.txt" | head -1 | cut -d'"' -f2)
+  KDIR="$ROOT/tools/kleidiai-$KTAG"
+  if [ ! -f "$KDIR/CMakeLists.txt" ]; then
+    curl -sL -o "$ROOT/tools/kleidiai.tar.gz" "https://github.com/ARM-software/kleidiai/releases/download/$KTAG/kleidiai-$KTAG-src.tar.gz"
+    echo "$KMD5 *$ROOT/tools/kleidiai.tar.gz" | md5sum -c --quiet || { echo "kleidiai archive md5 mismatch"; exit 1; }
+    mkdir -p "$KDIR" && tar xzf "$ROOT/tools/kleidiai.tar.gz" -C "$KDIR" --strip-components=1 && rm -f "$ROOT/tools/kleidiai.tar.gz"
+  fi
+  KSRC="$KDIR"; command -v cygpath >/dev/null && KSRC=$(cygpath -m "$KDIR")
+  FLAGS+=(-DFETCHCONTENT_SOURCE_DIR_KLEIDIAI="$KSRC")
 fi
 cmake -S "$SRC" -B "$BUILD" -G Ninja "${FLAGS[@]}" >"$BUILD.configure.log" 2>&1 || { tail -20 "$BUILD.configure.log"; exit 1; }
 cmake --build "$BUILD" -j"$JOBS" --target llama-bench llama-completion >"$BUILD.build.log" 2>&1 || { tail -30 "$BUILD.build.log"; exit 1; }
