@@ -484,6 +484,14 @@ release later if wanted (Q8 files are 60 to 78 MB).
 
 **Runtime options (17:00).** Asked for wrappers for the PC and an Android phone with performance first. `RUNTIME.md` compares llama.cpp, ExecuTorch, MLC LLM, ONNX Runtime GenAI, MediaPipe, a Rust shared core and cross platform plugins; the pick is llama.cpp as the single core with two thin shells and a shared brain library later, Q8 on the PC and Q4_0 measured against Q8 on the phone. First step is a ten minute `llama-bench` on the actual phone.
 
+**Quantisation decided (17:30).** Held out perplexity of the 72m 10B model:
+f16 17.30, Q8_0 17.32, Q4_0 18.78. The owner accepts no quality loss, so
+Q8_0 (77.7 MB) is the only build, on the PC and on every phone; Q4_0 is
+kept only as a file for the phone benchmark. Target phones: a Poco F3
+(Snapdragon 870) now, weaker 2026 phones later, no NPU dependence, CPU
+path only. `phone/bench_phone.sh` benchmarks over adb with the prebuilt
+Android arm64 llama.cpp; it needs the phone attached with USB debugging.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

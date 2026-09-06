@@ -41,10 +41,16 @@ devices, and two thin shells.**
   is settled, implement it once in a small library with a C interface (C++
   next to llama.cpp, or Rust with UniFFI) so the PC service and the Android
   app run identical logic; tools are registered by each platform.
-- **Quantisation per device:** Q8_0 on the PC (no quality loss, 77.7 MB),
-  measure Q4_0 against Q8_0 on the phone, where the Arm kernels make Q4_0
-  faster and the 45 MB file leaves room; keep Q8_0 if the benchmark shows
-  quality loss on the command suite.
+- **Quantisation, decided by measurement on held out text (llama-perplexity,
+  40 chunks of 1024 tokens from the validation shard):** f16 17.30, Q8_0
+  17.32, Q4_0 18.78. Q8_0 is lossless within noise; Q4_0 costs 8.5% in
+  perplexity, which the owner does not accept. **Q8_0 everywhere, 77.7 MB,
+  on the PC and on every phone.** Speed on the phone comes from the free
+  levers below, not from a smaller number format.
+- **No NPU dependence.** The target is the owner's Poco F3 (Snapdragon 870,
+  2021) today and weaker 2026 phones tomorrow, so the CPU path with
+  llama.cpp's Arm kernels is the only path; NPU delegates would fragment
+  the app per chip family and are off the table.
 
 ## Expected numbers
 
@@ -52,16 +58,18 @@ devices, and two thin shells.**
 |---|---|---|---|
 | RTX 4060, CUDA | several thousand | over 1,000 | well under a second |
 | PC, 4 CPU threads (measured) | 1,858 | 298 | about half a second |
-| recent Snapdragon, 4 big cores, Q4_0 with KleidiAI (estimate) | 500 to 1,000 | 80 to 150 | one to two seconds |
+| Poco F3, Snapdragon 870, 4 big cores, Q8_0 (estimate) | 500 to 1,000 | 80 to 150 | one to two seconds |
 
 The phone estimate is the one to replace with a measurement before any
-app code is written: install Termux, copy `llama-bench` and the two GGUF
-files, run `llama-bench -m model.gguf -t 4 -p 256 -n 64`, and the table
-above becomes fact for that exact phone.
+app code is written. `phone/bench_phone.sh` does it over adb with the
+prebuilt Android arm64 `llama-bench` from the llama.cpp release (staged in
+`phone/bin/`, not committed): plug the phone in with USB debugging on and
+the script pushes the binary and the GGUF files to `/data/local/tmp`, runs
+the benchmark on 4 threads, prints the numbers and cleans up.
 
 ## Order of work
 
-1. Measure on the phone with `llama-bench` (Q8_0 and Q4_0), ten minutes.
+1. Measure on the phone with `phone/bench_phone.sh` (Q8_0, and Q4_0 for reference), ten minutes.
 2. Build the llama.cpp Android example with our GGUF, confirm it runs, keep
    the JNI layer, throw away the example UI.
 3. Move the loop and the tool registry into a shared core once the Python

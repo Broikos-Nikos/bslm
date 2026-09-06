@@ -16,3 +16,4 @@ pretrain/runs/
 reports/
 data/redact_names.txt
 .claude/
+phone/bin/
