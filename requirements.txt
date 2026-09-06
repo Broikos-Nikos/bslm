@@ -1,0 +1,8 @@
+--index-url https://download.pytorch.org/whl/cu126
+--extra-index-url https://pypi.org/simple
+torch>=2.6
+numpy
+tokenizers        # own BPE for pretraining (pretrain/data.py); the router has its own pure python BPE
+pyarrow           # reads the FineWeb-Edu parquet files
+gguf              # writes llama.cpp files (pretrain/export_gguf.py)
+triton-windows; sys_platform == "win32"    # torch.compile on Windows; Linux has triton with torch
