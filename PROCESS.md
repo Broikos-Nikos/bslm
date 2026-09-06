@@ -511,6 +511,15 @@ local music, agenda, weather, contacts, navigation and page clicking each
 map to an Android intent, content provider, HTTP fetch or a WebView, and to
 the Windows equivalent on the PC.
 
+**Emulator functional test passed (2026-09-06, 22:00).** The static x86_64
+build from `phone/build_android.sh` (NDK r27c, no shared libraries) runs the
+Q8_0 model inside the Android 16 emulator: `llama-completion` answers "The
+capital of France is" with "located in the city of Paris ...", and
+`phone/bench_phone.sh` runs end to end (2 virtual cores: 155 prompt and 36
+generation tokens per second at Q8_0, meaningless for a phone, they only
+prove the path). The emulator ran with a 1.5 GB guest and was shut down
+right after; the arm64 build for the Poco F3 follows.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

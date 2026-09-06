@@ -13,7 +13,8 @@ THREADS="${THREADS:-4}"
 cd "$ROOT"
 $ADB devices | grep -qE "device$" || { echo "no device attached over adb"; exit 1; }
 ABI=$($ADB shell getprop ro.product.cpu.abi | tr -d '\r')
-[ -x "phone/bin/$ABI/llama-bench" ] || { echo "no phone/bin/$ABI/llama-bench, run: bash phone/build_android.sh $ABI"; exit 1; }
+# -f, not -x: Git Bash on Windows does not see a Linux ELF as executable
+[ -f "phone/bin/$ABI/llama-bench" ] || { echo "no phone/bin/$ABI/llama-bench, run: bash phone/build_android.sh $ABI"; exit 1; }
 $ADB shell "getprop ro.product.model; getprop ro.board.platform; grep -m1 Features /proc/cpuinfo; grep -c processor /proc/cpuinfo" | tr -d '\r'
 $ADB shell mkdir -p $DEV
 $ADB push "phone/bin/$ABI/llama-bench" $DEV/ >/dev/null
