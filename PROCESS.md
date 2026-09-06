@@ -529,6 +529,12 @@ bundle), so the script fetches it with curl and checks the md5 before
 handing it to cmake. Everything for the phone measurement is in place;
 the only remaining step is the phone on USB with debugging enabled.
 
+**Priority rule (2026-09-06, 23:30).** The model comes first. The PC and
+phone wrappers are only worked on when there is no work to do on the model
+itself: during training downtime or once the model is done. Next block of
+work is therefore stage 5 of `OWN_MODEL.md`, the trajectory corpus with
+real tool results, then the loop (stage 6) and the agent benchmark (stage 7).
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

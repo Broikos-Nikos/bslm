@@ -69,6 +69,9 @@ the benchmark on 4 threads, prints the numbers and cleans up.
 
 ## Order of work
 
+The wrappers wait for the model: this list is worked on only during
+training downtime or once the model is done.
+
 1. Measure on the phone with `phone/bench_phone.sh` (Q8_0, and Q4_0 for reference), ten minutes.
 2. Build the llama.cpp Android example with our GGUF, confirm it runs, keep
    the JNI layer, throw away the example UI.
