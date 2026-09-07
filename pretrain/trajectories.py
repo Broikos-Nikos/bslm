@@ -106,6 +106,7 @@ WHAT = {  # what is missing, for the judgement
     "developer": "the developer", "country_of_city": "the country", "element_symbol": "the symbol",
     "atomic_number": "the atomic number", "sport": "the sport",
 }
+NOUN = dict(WHAT, head_gov="the head of government", head_state="the head of state")   # "so <noun> is <answer>"
 SAY = {   # the delivered sentence; {s} subject, {a} answer, {src} page title
     "capital": "The capital of {s} is {a}", "capital_region": "The capital of {s} is {a}",
     "head_gov": "{a} is the head of government of {s}", "head_state": "{a} is the head of state of {s}",
@@ -257,7 +258,13 @@ def fact_traj(fact, rng, now, home, soul, shape):
             return None, None
         hit = next((i for i, x in enumerate(items) if found_in(a, x["snippet"])), None)
         if hit is not None and shape != "open":
-            t.model("Judge", f'Result {hit + 1} states it: "{fragment(a, items[hit]["snippet"])}". That answers it.')
+            # name the answer in the judgement, so the delivery copies it from
+            # the line above instead of hunting through the result block; and
+            # say out loud when the first result is about something else
+            skip = ""
+            if hit > 0 and norm(s) not in norm(items[0]["title"]):
+                skip = f"Result 1 is about {items[0]['title']}, not {s}. "
+            t.model("Judge", f'{skip}Result {hit + 1} states it: "{fragment(a, items[hit]["snippet"])}", so {NOUN[rel]} is {a}. That answers it.')
             t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items[hit]['title']}).")
             drop_state(st)
             return t, truth
@@ -271,7 +278,7 @@ def fact_traj(fact, rng, now, home, soul, shape):
                 t.model("Judge", f"The results mention {s} but none states {WHAT[rel]}. Open result {page_i + 1}, the page itself.")
             page = t.act(env, f"open({page_i + 1})")
             if found_in(a, page):
-                t.model("Judge", f'The page says: "{fragment(a, page)}". That answers it.')
+                t.model("Judge", f'The page says: "{fragment(a, page)}", so {NOUN[rel]} is {a}. That answers it.')
                 t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items[page_i]['title']}).")
                 drop_state(st)
                 return t, truth
@@ -284,7 +291,7 @@ def fact_traj(fact, rng, now, home, soul, shape):
             items2 = env.last_results
             hit2 = next((i for i, x in enumerate(items2) if not isinstance(x, dict) or "error" in x or found_in(a, x["snippet"])), None) if items2 and "error" not in items2[0] else None
             if hit2 is not None:
-                t.model("Judge", f'Result {hit2 + 1} states it: "{fragment(a, items2[hit2]["snippet"])}". That answers it.')
+                t.model("Judge", f'Result {hit2 + 1} states it: "{fragment(a, items2[hit2]["snippet"])}", so {NOUN[rel]} is {a}. That answers it.')
                 t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items2[hit2]['title']}).")
                 drop_state(st)
                 return t, truth
@@ -698,9 +705,13 @@ def build(args):
     n_facts = min(args.facts, len(facts))
     n_test = min(args.test_facts, n_facts // 10)
 
-    def do_fact(i):
+    def do_fact(job):
+        # every fact is asked args.phrasings times, each with its own wording,
+        # session and shape; all copies share the fact's split, so a held out
+        # fact never leaks into training through another phrasing
+        i, ph = job
         f = facts[i]
-        r = random.Random(args.seed * 7919 + i)
+        r = random.Random(args.seed * 7919 + i * 31 + ph)
         now, home, soul, _ = session(r)
         u = r.random()
         shape = "direct" if u < 0.5 else ("bad_first" if u < 0.85 else "open")
@@ -717,10 +728,11 @@ def build(args):
         keep(t, truth, "test" if i < n_test else ("val" if i < n_test + n_facts // 50 else "train"))
 
     t0 = time.time()
+    jobs = [(i, ph) for i in range(n_facts) for ph in range(args.phrasings)]
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        for k, _ in enumerate(ex.map(do_fact, range(n_facts))):
+        for k, _ in enumerate(ex.map(do_fact, jobs)):
             if k % 2000 == 0:
-                print(f"facts {k}/{n_facts}  {time.time() - t0:.0f}s  {stats}", flush=True)
+                print(f"facts {k}/{len(jobs)}  {time.time() - t0:.0f}s  {stats}", flush=True)
 
     # songs, sequential and throttled (YouTube)
     n_songs = min(args.songs, len(songs))
@@ -821,6 +833,7 @@ def main():
     ap.add_argument("--max_chars", type=int, default=3600)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--giveup_keep", type=float, default=0.15, help="share of unfindable facts kept as honest give ups")
+    ap.add_argument("--phrasings", type=int, default=1, help="trajectories per fact, each worded and shaped differently")
     build(ap.parse_args())
 
 

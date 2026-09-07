@@ -604,6 +604,24 @@ relations that came back empty (birth and death years, heights, founding
 years) through a subquery form the endpoint answers completely, raise the
 fact share and cut the local share (14,000 to 6,000, it is at 100%).
 
+**Round two (2026-09-07, 05:05).** Give ups capped at 15% of the unfindable
+facts, local share cut to 6,000, 16,000 facts processed (9,121 kept, 6,158
+give ups dropped): 20,062 trajectories, 18,282 train, val loss 0.039.
+Benchmark on the new held out set: **89.4% overall**, facts 61.7%, songs
+91.7%, weather 86.7%, compound 98.3%, local and small talk 100%; recovery
+81.6% (pass), false delivery 6.6%, honest give up 44% of 9. Worse on facts
+than round one, and the misses show why: with fewer give ups to imitate,
+the model delivers a wrong span more often ("Seinäjoki is in Sweden",
+"SQLite was developed by Microsoft", "Don Juan was written by Don Juan").
+Sixty held out facts per round also means a six point noise band, so the
+rounds are compared on the misses, not the decimals. Round three attacks
+the reading itself, with no new network calls (everything is cached): the
+judgement line now names the answer ("..., so the director is Christopher
+Nolan") so the delivery copies from the line above rather than hunting in
+the result block; the judgement says when the first result is about
+something else; and every fact is asked three times with different
+wordings, sessions and shapes, tripling the fact share.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

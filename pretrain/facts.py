@@ -39,8 +39,6 @@ DBPEDIA = {
     "composer": ("?s a dbo:Film; dbo:musicComposer ?a.", 25, 3000),
     "release_year": ("?s a dbo:Film; dbo:releaseDate ?av.", 30, 5000),
     "author": ("?s a dbo:Book; dbo:author ?a.", 20, 4000),
-    "height": ("?s a dbo:Mountain; dbo:elevation ?av.", 15, 3000),
-    "founded": ("?s a dbo:Company; dbo:foundingYear ?av.", 25, 3000),
     "developer": ("?s a dbo:Software; dbo:developer ?a.", 20, 3000),
     "birthplace": ("?s a dbo:Person; dbo:birthPlace ?a. ?a a dbo:City.", 40, 5000),
     "born_year": ("?s a dbo:Person; dbo:birthDate ?av.", 40, 9000),
@@ -72,7 +70,7 @@ def log(*a):
 
 
 def query(endpoint, q, timeout=120):
-    url = endpoint + "?" + urllib.parse.urlencode({"query": q, "format": "json"})
+    url = endpoint + "?" + urllib.parse.urlencode({"query": q, "format": "json", "timeout": 120000})   # DBpedia answers partially without it
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/sparql-results+json"})
     return json.loads(urllib.request.urlopen(req, timeout=timeout, context=_CTX).read())["results"]["bindings"]
 
