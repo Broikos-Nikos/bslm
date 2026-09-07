@@ -905,6 +905,15 @@ pull against each other in the learning rate, so the fix for both bars at
 once is better data (round thirteen's unanswerable questions), not a rate
 that buys one bar by losing the other.
 
+**Round twelve-b, high learning rate (2026-09-08, 01:00).** Muon 0.008, Adam
+8e-4: overall 91.2%, facts near the 0.004 default, honest give up 79%, false
+delivery 3.9%, recovery 88%. So the sweep confirms the default 0.004 is the
+right rate: 0.002 buys honesty by losing facts (65%), 0.008 gains nothing
+over 0.004, and 0.004 holds the best overall. The learning rate is settled;
+no recipe lever remains, the open bars are a data problem. Round thirteen
+(the fabricated unanswerable questions) is next on the card, the direct test
+of whether unanswerable data lifts honest give up without the fact cost.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
