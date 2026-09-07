@@ -798,6 +798,18 @@ plan named: the JNI bridge to llama.cpp stays, the example's chat screen is
 replaced by our protocol (header, memory, tools, actions) in the next
 wrapper slot; the phone measurement still waits for the Poco F3 on USB.
 
+**The loop runs on Android (2026-09-07, 20:10).** The phone shell now carries
+our protocol: `phone/android/` holds the Kotlin tools (same actions and
+result text as the PC), the loop with memory, new round rule and delivery
+check, a one box activity, and the engine patches (greedy sampling, a
+context reset and a cancel in the JNI layer). In the emulator with the
+round seven model, four turns through the adb hook all came back right:
+"set a timer for 10 minutes" set the clock app's timer, "who directed
+inception" searched Wikipedia for real and answered Christopher Nolan,
+"whats the weather tomorrow in athens" read Open-Meteo, "living room
+lights half" set the level. The same APK goes on the Poco F3 the day it is
+on USB; speed there is the number still missing.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
