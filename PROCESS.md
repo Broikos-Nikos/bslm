@@ -876,6 +876,17 @@ command (bash /home/pishow/bslm_proxy/stop.sh over ssh, or the ready
 helper in the session scratchpad), to be run when the fetch work is done.
 The Pi credentials live only in the session scratchpad, never in the repo.
 
+**Overnight plan (2026-09-07, 23:10).** The chain runs eleven (more honest
+give ups), twelve (learning rate sweep 0.002 and 0.008), then thirteen,
+each training when the card frees; the hourly cron takes over after and
+starts fourteen onward from the misses. Round thirteen adds a data lever
+for the two open loop bars: 2000 deliberately unanswerable fact questions
+about fabricated subjects (real search, no matching page, the honest give
+up sentence), aimed at honest give up (82% now) and false delivery (4.2%),
+alongside the usual answerable facts. Round thirteen's generation is the
+first to use the Pi's second IP (BSLM_PI_PROXY on), so the fresh searches
+run at about twice the rate; the cached answerable facts stay local.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

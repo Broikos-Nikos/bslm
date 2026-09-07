@@ -972,6 +972,61 @@ def umbrella_traj(rng, now, home, soul, vehicle, places):
     return t, {"family": "umbrella", "user": user, "place": place, "day": day, "hour": hour, "expected": expected, "vehicle": vehicle}
 
 
+FAKE_FIRST = ["Veldran", "Corymbe", "Tashiro", "Halvane", "Мirelle", "Oskar", "Prithvi", "Lenmark",
+              "Astoria", "Belgrave", "Cottrane", "Duvernay", "Ferelith", "Grimsby", "Holloway"]
+FAKE_SECOND = ["Solmirov", "Vantar", "Okonkwo", "Reyes", "Halvorsen", "Marchetti", "Nakamura", "Delacroix",
+               "Petrov", "Sundqvist", "Achterberg", "Bhattacharya", "Quintero", "Ferro"]
+FAKE_TITLE_A = ["The Silent", "Autumn of", "A Study in", "Nights over", "The Last", "Echoes of", "Beneath the",
+                "The Glass", "Winter in", "Songs for", "The Hollow", "Return to", "Shadows of"]
+FAKE_TITLE_B = ["Kestrels", "Marrowgate", "Pelicans", "Verdance", "Ashford", "the Meridian", "Halcyon",
+                "Tarnwick", "the Fen", "Brightwater", "Cendrillon", "the Ninth Door", "Wrenfield"]
+
+
+def fabricate(rng, rel):
+    if rel in ("born_year", "died_year", "birthplace", "sport"):
+        return f"{rng.choice(FAKE_FIRST)} {rng.choice(FAKE_SECOND)}"
+    if rel in ("director", "composer", "release_year"):
+        return f"{rng.choice(FAKE_TITLE_A)} {rng.choice(FAKE_TITLE_B)}"
+    if rel == "author":
+        return f"{rng.choice(FAKE_TITLE_A)} {rng.choice(FAKE_TITLE_B)}"
+    if rel in ("capital", "currency", "continent", "country_of_city", "capital_region"):
+        return f"{rng.choice(FAKE_SECOND)}stan" if rng.random() < 0.5 else f"{rng.choice(FAKE_FIRST)}ia"
+    if rel == "developer":
+        return f"{rng.choice(FAKE_TITLE_B)} {rng.choice(['Engine', 'Studio', 'Works', 'Labs'])}"
+    return f"{rng.choice(FAKE_FIRST)} {rng.choice(FAKE_SECOND)}"
+
+
+UNANS_RELS = ["capital", "currency", "director", "composer", "author", "born_year",
+              "birthplace", "developer", "country_of_city", "sport", "release_year"]
+
+
+def unanswerable_traj(rng, now, home, soul):
+    """A fabricated subject: the real search returns no page for it, so the
+    only honest move is to say it could not be found."""
+    rel = rng.choice(UNANS_RELS)
+    subj = fabricate(rng, rel)
+    q_user = rng.choice(Q[rel]).format(s=subj)
+    if rng.random() < 0.3:
+        q_user, subj = q_user.lower(), subj.lower()
+    t = Traj(header(now, home, soul), q_user)
+    env, st = new_env(now)
+    t.model("Plan", rng.choice(PLAN_FACT))
+    t.act(env, f'search("{subj} {KEY[rel]}")')
+    items = env.last_results
+    if items and isinstance(items[0], dict) and "error" in items[0]:
+        drop_state(st)
+        return None, None
+    # if the fabricated name accidentally hit a real page, drop it: it is not unanswerable
+    page_i, _ = page_for(items, subj, rel)
+    if page_i is not None:
+        drop_state(st)
+        return None, None
+    t.model("Judge", f"None of the results is about {subj}; there is no such page. I cannot find {WHAT[rel]}; say so rather than guess.")
+    t.model("Deliver", f"I could not find {WHAT[rel]} of {subj}; the search did not return a page about it.")
+    drop_state(st)
+    return t, {"family": "fact", "rel": rel, "subject": subj, "answer": None, "aliases": [], "user": q_user, "unanswerable": True}
+
+
 OTHER = [
     ("tell me a joke", "Not a task or a fact I can check; say what I do instead.",
      "I do not have jokes. I can set timers and alarms, keep lists and notes, check facts, play music and read your calendar."),
@@ -1178,6 +1233,17 @@ def build(args):
         keep(t, truth, "test" if i < args.followup // 20 else ("val" if i < args.followup // 10 else "train"))
         if i == 0:
             print(f"followup {args.followup}  {time.time() - t0:.0f}s", flush=True)
+    for i in range(args.unanswerable):
+        r = random.Random(args.seed * 22801763 + i)
+        now, home, soul, _ = session(r)
+        try:
+            t, truth = unanswerable_traj(r, now, home, soul)
+        except Exception:      # noqa: BLE001
+            stats["unans_error"] = stats.get("unans_error", 0) + 1
+            continue
+        keep(t, truth, "test" if i < args.unanswerable // 20 else ("val" if i < args.unanswerable // 10 else "train"))
+        if i == 0:
+            print(f"unanswerable {args.unanswerable}  {time.time() - t0:.0f}s", flush=True)
     for i in range(args.other):
         r = random.Random(args.seed * 67867967 + i)
         now, home, soul, _ = session(r)
@@ -1235,6 +1301,7 @@ def main():
     ap.add_argument("--umbrella", type=int, default=2000)
     ap.add_argument("--other", type=int, default=1200)
     ap.add_argument("--followup", type=int, default=3000)
+    ap.add_argument("--unanswerable", type=int, default=0, help="fabricated subjects that cannot be found, for the honest give up bar")
     ap.add_argument("--out", default=None, help="output directory (default corpus/agent); one per round lets generation overlap training")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--yt_delay", type=float, default=0.4)
