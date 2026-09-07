@@ -88,11 +88,15 @@ def dbp_rows(pattern, min_labels, want, page=2000):
     out, off = [], 0
     while off < want:
         q = f"SELECT {sel} WHERE {{ {sub} {rest} {labels} }} LIMIT {page} OFFSET {off}"
-        try:
-            got = query(DBP, q)
-        except Exception as e:      # noqa: BLE001
-            log("    failed:", str(e)[:100])
-            time.sleep(5)
+        got = None
+        for attempt in range(3):            # the endpoint's speed varies by the minute
+            try:
+                got = query(DBP, q, timeout=240)
+                break
+            except Exception as e:      # noqa: BLE001
+                log("    failed:", str(e)[:100], "attempt", attempt + 1)
+                time.sleep(15 * (attempt + 1))
+        if got is None:
             break
         out += got
         if len(got) < page:

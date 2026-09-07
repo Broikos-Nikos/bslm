@@ -34,6 +34,9 @@ class Config:
 SIZES = {
     "56m": Config(dim=640, n_layers=10, n_heads=10, n_kv_heads=5, ffn=1728),
     "72m": Config(dim=768, n_layers=10, n_heads=12, n_kv_heads=4, ffn=1920),
+    # the size question of 2026-09-07: about 152M parameters, roughly 160 MB at
+    # Q8_0 (about 95 MB at Q4_K_M); twice the compute of 72m per token
+    "150m": Config(dim=1024, n_layers=12, n_heads=16, n_kv_heads=4, ffn=2816),
 }
 
 

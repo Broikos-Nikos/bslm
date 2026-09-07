@@ -725,6 +725,24 @@ the toolbox in the header with tool() and honest refusals for tools not
 listed, plain weather questions, the smart home actions, and the delivery
 check in the runtime reported as a second number.
 
+**Round seven (2026-09-07, 15:10).** Follow ups, toolbox, plain weather,
+smart home, delivery check, all in one round: 37,185 trajectories (21,633
+facts, 8,000 local, 2,745 follow ups), 33,879 train, 16.5M tokens, 450
+steps, val loss 0.048. On the frozen benchmark plus fresh local and follow
+up tasks: **91.8% overall**; follow ups 94% model alone and 95% with the
+check (first time measured, passes), local 99%, songs 96.9%, weather
+89.3%, compound 97.5%, small talk 100%, facts 71.0% (76.0% for round six
+on the same set; four points of noise plus the new families sharing the
+same capacity). Loop metrics: **recovery 94.8% and false delivery 2.8%
+both pass for the first time**, the check turning wrong facts into "I
+could not confirm that" (counted as neither right nor invented); wasted
+steps 0.0%; honest give up 88.9% of 18. Facts stay the one family under
+the bar. Round eight (queued, no generation): the size and tokens curve
+on round seven's data, 72M at 10B tokens with two epochs, 72M at 2.4B
+tokens, 56M at 1.2B tokens, to price the 150M question. Round nine (data,
+generating in parallel): type aware disambiguation when a title names
+several works, and a "well known subjects" fact score beside the full one.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
