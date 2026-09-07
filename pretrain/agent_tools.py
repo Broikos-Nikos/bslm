@@ -211,15 +211,32 @@ def wiki_search(query, n=5, backend=None):
     return c.put(key, items)
 
 
+def infobox_rows(page, limit=14):
+    """'Key: value' lines from the article's infobox, short rows only."""
+    m = re.search(r'<table[^>]*class="[^"]*infobox[^"]*"[^>]*>(.*?)</table>', page, re.S)
+    if not m:
+        return []
+    rows = []
+    for k, v in re.findall(r"<th[^>]*>(.*?)</th>\s*<td[^>]*>(.*?)</td>", m.group(1), re.S):
+        k, v = _clean(re.sub(r"<br\s*/?>", ", ", k)), _clean(re.sub(r"<(?:br|/li|/p)[^>]*>", ", ", v))
+        v = re.sub(r"\[\d+\]|\s*,\s*,", "", v).strip(" ,")
+        if 2 <= len(k) <= 32 and 1 <= len(v) <= 120 and not re.search(r"^\W|website|image|caption|coordinates|native name", k, re.I):
+            rows.append(f"{k}: {v}")
+        if len(rows) >= limit:
+            break
+    return rows
+
+
 def wiki_extract(title, chars=1200):
-    """Plain text opening of a Wikipedia article. Cached."""
+    """The article as the model reads it: infobox rows, then the lead
+    paragraphs, from the mobile page. Cached."""
     key = title.strip().lower()
-    c = cache("extract")
+    c = cache("page2")
     hit = c.get(key)
     if hit is not None:
         return hit
     text = None
-    if api_ok():
+    if False:
         url = ("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1"
                f"&exchars={chars}&format=json&redirects=1&titles=" + urllib.parse.quote(title))
         try:
@@ -231,15 +248,18 @@ def wiki_extract(title, chars=1200):
         except Exception as e:      # noqa: BLE001
             text = f"could not open the page: {e}"
     if text is None:
-        # the mobile article page, lead paragraphs only
+        # the mobile article page: infobox rows, then the lead paragraphs
         url = "https://en.m.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_"))
         try:
             page = _get(url, headers={"Accept": "text/html"})
+            rows = infobox_rows(page)
             m = re.search(r'<div class="mw-parser-output">(.*)', page, re.S)
             body = (m.group(1) if m else page).split("<h2", 1)[0]
+            body = re.sub(r"(?s)<table.*?</table>", " ", body)
             paras = [_clean(p) for p in re.findall(r"<p[^>]*>(.*?)</p>", body, re.S)]
-            text = re.sub(r"\[\d+\]", "", " ".join(p for p in paras if p))
-            text = re.sub(r"\s+", " ", text).strip()[:chars]
+            lead = re.sub(r"\[\d+\]", "", " ".join(p for p in paras if p))
+            lead = re.sub(r"\s+", " ", lead).strip()[:chars]
+            text = ("; ".join(rows) + ". " if rows else "") + lead
         except Exception as e:      # noqa: BLE001
             text = f"could not open the page: {e}"
     if text.startswith("could not open"):
@@ -336,8 +356,8 @@ def forecast(place, day, now):
                               zip(h["time"], h["temperature_2m"], h["precipitation_probability"], h["weather_code"])])
         except Exception as e:      # noqa: BLE001
             return f"no forecast: {e}"
-    rows = [r for r in hit if r[0] in ("06:00", "09:00", "12:00", "15:00", "18:00", "21:00")]
-    line = ", ".join(f"{t} {round(temp)}C rain {p}%" for t, temp, p, _ in rows)
+    rows = [r for r in hit if r[0] >= "06:00"]
+    line = ", ".join(f"{t} {round(temp)}C {p}%" for t, temp, p, _ in rows)
     rain = [r for r in hit if (r[2] or 0) >= 40]
     summary = "rain likely " + ", ".join(r[0] for r in rain[:6]) if rain else "no rain expected"
     return f"{loc['name']}, {loc['country']}, {d.isoformat()}: {line}. {summary}."

@@ -655,6 +655,26 @@ by", "capital") when they sit right before it; YouTube searches use the
 title alone when no artist was given; historical states leave the capital
 and currency questions, since their pages rarely state either.
 
+**Round five (2026-09-07, 10:35).** Answer first, cue anchored quotes, no
+invented artist: 29,468 trajectories (18,529 facts), 26,907 train, 13.4M
+tokens, 372 steps, val loss 0.050. Benchmark (100 tasks per family):
+**91.3% overall**, the best so far; facts 72.0%, songs 93.8%, weather 89.3%,
+compound 98.8%, local and small talk 100%; **recovery 89.4% passes**, false
+delivery 5.6%, wasted 0.0%, honest give up 36% of 11. By relation: authors
+18 of 21, cities 31 of 35, directors 6 of 7, but composers 1 of 9 and
+sports 5 of 12. Two causes found in the data, not the model: the page text
+the model reads was the lead paragraphs only, and film leads rarely name
+the composer, so the truth was not on the page it opened; and sport
+answers were only counted when the noun ("swimming") appeared, while pages
+say "swimmer", so most sport facts had become give ups and were dropped.
+Round six: `open` now returns the article's infobox rows first ("Music
+by: Hans Zimmer", "Developer(s): BioWare", "Capital: ...") and then the
+lead; aliases count as found and the delivered answer is the word on the
+page ("Duncan Armstrong is a swimmer"); the forecast text lists every hour
+from 06:00 so any appointment hour can be judged; the give up share kept
+rises to 25% so the model sees more honest stops; more historical states
+filtered out of the capital questions.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

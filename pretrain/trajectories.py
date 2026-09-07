@@ -272,6 +272,15 @@ def fact_traj(fact, rng, now, home, soul, shape):
         queries.append(bad)
     queries.append(good)
     truth = {"family": "fact", "rel": rel, "subject": canonical, "answer": a, "aliases": fact.get("aliases", []), "user": q_user}
+    cands = [a] + [x for x in fact.get("aliases", []) if x]
+
+    def where(text):
+        return next((c for c in cands if found_in(c, text)), None)
+
+    def said(s_, a_):
+        if rel == "sport" and a_ != a:
+            return f"{s_} is a {a_}" if not a_.endswith("ing") else f"{s_} does {a_}"
+        return SAY[rel].format(s=s_, a=a_)
     for qi, q in enumerate(queries):
         if shape == "bad_first" and qi == 0:
             # the vague query is served by DBpedia Lookup: real, noisy, and it
@@ -282,8 +291,9 @@ def fact_traj(fact, rng, now, home, soul, shape):
         if items and "error" in items[0]:
             drop_state(st)
             return None, None
-        hit = next((i for i, x in enumerate(items) if found_in(a, x["snippet"])), None)
+        hit = next((i for i, x in enumerate(items) if where(x["snippet"])), None)
         if hit is not None and shape != "open":
+            a_found = where(items[hit]["snippet"])
             # name the answer in the judgement, so the delivery copies it from
             # the line above instead of hunting through the result block; and
             # say out loud when the first result is about something else
@@ -294,8 +304,8 @@ def fact_traj(fact, rng, now, home, soul, shape):
                 skip = "Result 1 is the film, not the book. "
             elif hit > 0 and rel in ("director", "composer") and re.search(r"novel|book|\(album\)|\(song\)", items[0]["title"].lower()):
                 skip = "Result 1 is not the film. "
-            t.model("Judge", f'{skip}Result {hit + 1} states it: "{fragment(a, items[hit]["snippet"], rel=rel)}", so {NOUN[rel]} is {a}. That answers it.')
-            t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items[hit]['title']}).")
+            t.model("Judge", f'{skip}Result {hit + 1} states it: "{fragment(a_found, items[hit]["snippet"], rel=rel)}", so {NOUN[rel]} is {a_found}. That answers it.')
+            t.model("Deliver", said(s, a_found) + f" (Wikipedia: {items[hit]['title']}).")
             drop_state(st)
             return t, truth
         # not in the snippets (or we want the page): is the subject's page here?
@@ -307,9 +317,10 @@ def fact_traj(fact, rng, now, home, soul, shape):
             else:
                 t.model("Judge", f"The results mention {s} but none states {WHAT[rel]}. Open result {page_i + 1}, the page itself.")
             page = t.act(env, f"open({page_i + 1})")
-            if found_in(a, page):
-                t.model("Judge", f'The page says: "{fragment(a, page, rel=rel)}", so {NOUN[rel]} is {a}. That answers it.')
-                t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items[page_i]['title']}).")
+            a_found = where(page)
+            if a_found:
+                t.model("Judge", f'The page says: "{fragment(a_found, page, rel=rel)}", so {NOUN[rel]} is {a_found}. That answers it.')
+                t.model("Deliver", said(s, a_found) + f" (Wikipedia: {items[page_i]['title']}).")
                 drop_state(st)
                 return t, truth
             if qi + 1 < len(queries):
@@ -319,10 +330,11 @@ def fact_traj(fact, rng, now, home, soul, shape):
             t.model("Judge", f"The page opening does not state {WHAT[rel]}. One more query, worded differently.")
             r2 = t.act(env, f'search("{alt}")')
             items2 = env.last_results
-            hit2 = next((i for i, x in enumerate(items2) if not isinstance(x, dict) or "error" in x or found_in(a, x["snippet"])), None) if items2 and "error" not in items2[0] else None
+            hit2 = next((i for i, x in enumerate(items2) if where(x["snippet"])), None) if items2 and "error" not in items2[0] else None
             if hit2 is not None:
-                t.model("Judge", f'Result {hit2 + 1} states it: "{fragment(a, items2[hit2]["snippet"], rel=rel)}", so {NOUN[rel]} is {a}. That answers it.')
-                t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items2[hit2]['title']}).")
+                a_found = where(items2[hit2]["snippet"])
+                t.model("Judge", f'Result {hit2 + 1} states it: "{fragment(a_found, items2[hit2]["snippet"], rel=rel)}", so {NOUN[rel]} is {a_found}. That answers it.')
+                t.model("Deliver", said(s, a_found) + f" (Wikipedia: {items2[hit2]['title']}).")
                 drop_state(st)
                 return t, truth
             t.model("Judge", f"Still not stated. Two searches and the page did not give {WHAT[rel]}; say what I found and stop.")
@@ -711,7 +723,8 @@ def build(args):
     facts = [json.loads(l) for l in (AGENT / "facts.jsonl").open(encoding="utf-8")]
     hist = re.compile(r"dynasty|kingdom|empire|governorate|occupation|republic of|league|sultanate|bishopric|"
                       r"state of|duchy|khanate|emirate|principality|province of|colony|mandate|protectorate|"
-                      r"confederation|caliphate|viceroyalty|commonwealth of|\b\d{3,4}\b", re.I)
+                      r"confederation|caliphate|viceroyalty|commonwealth of|period|era\b|ancient|neo-|civili|"
+                      r"city-state|polity|tribe|people|culture|pattin|assyria|babylon|hittite|\b\d{3,4}\b", re.I)
     facts = [f for f in facts if f["rel"] not in ("capital", "currency", "capital_region") or not hist.search(f["subject"])]
     songs = [json.loads(l) for l in (AGENT / "songs.jsonl").open(encoding="utf-8")]
     places = [json.loads(l) for l in (AGENT / "places.jsonl").open(encoding="utf-8")]
