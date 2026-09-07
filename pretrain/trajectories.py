@@ -234,8 +234,10 @@ def fact_traj(fact, rng, now, home, soul, shape):
     'open' (good query, answer only on the page). Reality decides the rest."""
     rel, s, a = fact["rel"], fact["subject"], fact["answer"]
     q_user = rng.choice(Q[rel]).format(s=s)
+    canonical = s
     if rng.random() < 0.3:
         q_user = q_user.lower()
+        s = s.lower()          # the model copies what the user typed, it does not re-case names from memory
     t = Traj(header(now, home, soul), q_user)
     env, st = new_env(now)
     t.model("Plan", rng.choice(PLAN_FACT))
@@ -245,7 +247,7 @@ def fact_traj(fact, rng, now, home, soul, shape):
         bad = rng.choice([KEY[rel], f"{misspell(s, rng)} {KEY[rel]}", f"{s} {ALT[rel]}"[:40]])
         queries.append(bad)
     queries.append(good)
-    truth = {"family": "fact", "rel": rel, "subject": s, "answer": a, "user": q_user}
+    truth = {"family": "fact", "rel": rel, "subject": canonical, "answer": a, "aliases": fact.get("aliases", []), "user": q_user}
     for qi, q in enumerate(queries):
         if shape == "bad_first" and qi == 0:
             # the vague query is served by DBpedia Lookup: real, noisy, and it
@@ -264,6 +266,10 @@ def fact_traj(fact, rng, now, home, soul, shape):
             skip = ""
             if hit > 0 and norm(s) not in norm(items[0]["title"]):
                 skip = f"Result 1 is about {items[0]['title']}, not {s}. "
+            elif hit > 0 and rel == "author" and "film" in items[0]["title"].lower():
+                skip = "Result 1 is the film, not the book. "
+            elif hit > 0 and rel in ("director", "composer") and re.search(r"novel|book|\(album\)|\(song\)", items[0]["title"].lower()):
+                skip = "Result 1 is not the film. "
             t.model("Judge", f'{skip}Result {hit + 1} states it: "{fragment(a, items[hit]["snippet"])}", so {NOUN[rel]} is {a}. That answers it.')
             t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items[hit]['title']}).")
             drop_state(st)
@@ -334,11 +340,13 @@ def song_traj(song, rng, now, home, soul, library, in_library):
     if in_library:
         library = library + [f"{title} - {artist}"]
     user = rng.choice(SONG_ASK).format(t=title, a=artist)
+    canonical_title, canonical_artist = title, artist
     if rng.random() < 0.4:
         user = user.lower()
+        title, artist = title.lower(), artist.lower()     # copy the user's words, do not re-case from memory
     t = Traj(header(now, home, soul), user)
     env, st = new_env(now, library=library)
-    truth = {"family": "song", "title": title, "artist": artist, "user": user, "in_library": in_library}
+    truth = {"family": "song", "title": canonical_title, "artist": canonical_artist, "user": user, "in_library": in_library}
     t.model("Plan", rng.choice(["Check the music library first; YouTube if it is not there.",
                                 "Library first, then YouTube, and verify the title before playing.",
                                 "Look in the library, fall back to YouTube, pick the matching title."]))

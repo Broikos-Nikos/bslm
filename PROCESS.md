@@ -622,6 +622,22 @@ the result block; the judgement says when the first result is about
 something else; and every fact is asked three times with different
 wordings, sessions and shapes, tripling the fact share.
 
+**Round three (2026-09-07, 07:25).** Three phrasings per fact: 38,316
+trajectories (27,375 facts), 35,074 train, 19.3M tokens, 537 steps, val loss
+0.077. Benchmark: **87.4% overall**, facts 60.0%, songs 85%, weather 85%,
+compound 96.7%, local and small talk 100%; recovery 73.2%, false delivery
+7.5%, wasted 0.0%. No better. Reading the misses side by side with the
+training data gave the real cause: the training queries always used the
+canonical capitalised label ("Fundamento de Esperanto") while the user's
+line was lowercased a third of the time, so the model learned to re-case
+names from memory instead of copying them, and for rare names memory
+invents ("Basin de Esperanto", "Millwell, Iowa", "Ishincentry Park",
+"Undo the World Ends"). Round four makes every action a pure copy of the
+user's own words (queries, library and YouTube lookups, the delivered
+sentence), adds a judgement line for the wrong kind of first result (the
+film for a book and the reverse), drops to two phrasings per fact to
+repeat names less, and tests 100 tasks per family to narrow the noise.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
