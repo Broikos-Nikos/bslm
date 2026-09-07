@@ -22,7 +22,7 @@ REFLEX_THRESHOLD = 0.80
 # intents the loop model does better than the fixed skill: it reads the real
 # forecast, checks the library and the YouTube results, looks facts up
 LOOP_INTENTS = {"weather.query", "music.play", "search.web", "knowledge.query", "news.query", "translate.text"}
-LEVEL_WORDS = re.compile(r"(half|full|soft|dim|low|high|bright|percent|%|mode|scene|movie|reading|cozy|relax|party|dinner|focus|sleep)", re.I)
+LEVEL_WORDS = re.compile(r"(half|full|soft|dim|low|high|bright|percent|mode|scene|movie|reading|cozy|relax|party|dinner|focus|sleep)|%", re.I)
 DEFAULT_GGUF = ROOT / "models" / "72m-agent7-q8.gguf"
 
 
