@@ -895,6 +895,16 @@ Twelve (learning rate sweep) trains now, thirteen (the fabricated unanswerable
 questions) after. The unanswerable batch in thirteen is the real test of the
 honest give up bar; eleven shows quantity of give ups alone is not enough.
 
+**Round twelve-a, low learning rate (2026-09-08, 00:35).** Muon 0.002, Adam
+2e-4 on round eleven's data: overall 89.1%, facts 65% (down from 72% at the
+0.004 default), but honest give up 100% and false delivery 3.2%. A clear
+trade: the lower rate underfits extraction so the model hedges, passing both
+honesty bars at the cost of fact accuracy. Twelve-b (0.008) trains now, the
+other end of the curve. The lesson for the recipe: honesty and fact accuracy
+pull against each other in the learning rate, so the fix for both bars at
+once is better data (round thirteen's unanswerable questions), not a rate
+that buys one bar by losing the other.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
