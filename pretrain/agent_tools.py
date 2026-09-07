@@ -21,7 +21,9 @@ Actions, as the model writes them on an `Act:` line:
     note("text")  notes()
     event("dentist", "monday", "10:00")  agenda("tomorrow")
     calc("348 / 12")  convert(5, "km", "miles")  time()
-    lights("off", "kitchen")  device("tv", "off")  volume(30)
+    lights("off", "kitchen")  lights("half", "living room")  lights("movie", "living room")
+    switch("water heater", "on")   a smart plug or appliance, on or off
+    device("tv", "off")  volume(30)
     ask("which list?")     hands the turn back to the user
 """
 import ast
@@ -496,6 +498,34 @@ class Env:
         except Exception as e:      # noqa: BLE001
             return f"{name} failed: {e}"
 
+    LEVELS = {"full": 100, "max": 100, "maximum": 100, "bright": 100, "high": 80, "on": 100,
+              "half": 50, "medium": 50, "mid": 50, "low": 30, "soft": 30, "dim": 30, "warm": 30,
+              "night": 10, "minimum": 10, "min": 10, "off": 0}
+    SCENES = ("movie", "cinema", "reading", "cozy", "relax", "party", "dinner", "focus", "work", "sleep")
+
+    def lights(self, level, room, color=None):
+        """Lights by level (full, high, half, soft, a percentage), by scene
+        (movie, reading, cozy: the preset the home app carries under that
+        name), or simply on and off."""
+        lv = level.strip().lower().rstrip("%")
+        if lv in self.SCENES or lv.endswith(" mode"):
+            scene = lv.replace(" mode", "")
+            home = self.bot.state["home"]
+            home["lights"][room] = {"on": True, "scene": scene, "brightness": None, "color": None}
+            self.skills.save_state(self.bot.state)
+            return f"Lights in {room}: {scene} scene"
+        if lv.isdigit():
+            pct = max(0, min(100, int(lv)))
+        elif lv in self.LEVELS:
+            pct = self.LEVELS[lv]
+        else:
+            return f"lights: I do not know the level '{level}'; use full, high, half, soft, off, a percentage or a scene"
+        r = self.bot.light_control({"room": room, "color": color, "brightness": f"{pct}%" if 0 < pct < 100 else None,
+                                    "_text": "turn off the lights" if pct == 0 else "turn on the lights"})
+        if 0 < pct < 100 and not lv.isdigit():
+            r = r.replace("(brightness", f"({lv},")
+        return r
+
     def _run(self, name, a, g):
         b = self.bot
         if name == "search":
@@ -570,9 +600,12 @@ class Env:
         if name == "time":
             return b.time_query({"_text": ""})
         if name == "lights":
-            st = g(0, "on").lower()
-            return b.light_control({"room": g(1, "all"), "color": a[2] if len(a) > 2 else None,
-                                    "_text": f"turn {st} the lights"})
+            return self.lights(g(0, "on").lower(), g(1, "all"), a[2] if len(a) > 2 else None)
+        if name == "switch":
+            st = g(1, "on").lower()
+            on = st not in ("off", "close", "closed", "stop", "0")
+            r = b.device_control({"device": g(0), "_text": f"turn {'on' if on else 'off'} the {g(0)}"})
+            return r.replace("turned", "switched")
         if name == "device":
             st = g(1, "on").lower()
             return b.device_control({"device": g(0), "_text": f"turn {st} the {g(0)}"})

@@ -675,6 +675,18 @@ from 06:00 so any appointment hour can be judged; the give up share kept
 rises to 25% so the model sees more honest stops; more historical states
 filtered out of the capital questions.
 
+**Smart home actions (2026-09-07, 12:45).** The owner asked for light
+levels and presets ("living room lights half", "soft", "full", a scene the
+home app keeps under a name) and switched appliances ("open the water
+heater" for the plug that heats the bath water). Added on the model side:
+`lights(level, room)` takes full, high, half, soft, low, a percentage or a
+scene name (movie, reading, cozy, ...), and `switch(appliance, on|off)`
+takes open and close as on and off, the way it is said here. The generator
+has three new local task kinds (light levels, scenes, plugs, with bath and
+shower phrasings) so they enter the next round's data and benchmark. The
+connection to the real Tapo devices (the plug and the lamp groups behind
+those names) is wrapper work and waits for training downtime, as agreed.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

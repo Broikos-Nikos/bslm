@@ -449,7 +449,7 @@ def local_cases(rng, now):
     kind = rng.choice(["timer", "timer", "timer_cancel", "timer_left", "alarm", "alarm", "remind", "remind",
                        "reminders", "list_add", "list_add", "list_read", "note", "notes", "event", "event",
                        "agenda", "agenda", "calc", "calc", "convert", "convert", "time", "lights", "lights",
-                       "device", "volume"])
+                       "lights_level", "lights_level", "lights_scene", "plug", "plug", "plug", "device", "volume"])
     d = {"kind": kind, "setup": [], "turns": []}
     if kind == "timer":
         dur = rng.choice(pools.durations("en"))
@@ -589,6 +589,41 @@ def local_cases(rng, now):
         d["plan"] = "Home control: set the lights."
         d["act"] = f'lights("{st}", "{room}"' + (f', "{color}")' if color else ")")
         d["deliver"] = lambda r: r + "."
+    elif kind == "lights_level":
+        room = rng.choice(P("ROOM"))
+        lv = rng.choice(["full", "high", "half", "soft", "low", "dim", "25", "50", "75", "100", "10"])
+        pct = f"{lv} percent" if lv.isdigit() else lv
+        d["user"] = rng.choice(["{r} lights {l}", "set the {r} lights to {l}", "{l} lights in the {r}", "make the {r} lights {l}",
+                                "put the {r} lights on {l}", "{r} lights at {l}", "turn the {r} lights to {l}",
+                                "i want {l} light in the {r}"]).format(r=room, l=pct)
+        if lv in ("dim", "low", "soft") and rng.random() < 0.5:
+            d["user"] = rng.choice(["dim the {r} lights", "lower the {r} lights", "make the {r} lights softer"]).format(r=room)
+            lv = "soft" if "soft" in d["user"] else lv
+        d["plan"] = "Home control: set the lights to that level."
+        d["act"] = f'lights("{lv}", "{room}")'
+        d["deliver"] = lambda r: r + "."
+    elif kind == "lights_scene":
+        room = rng.choice(P("ROOM"))
+        sc = rng.choice(["movie", "reading", "cozy", "relax", "party", "dinner", "focus", "sleep"])
+        d["user"] = rng.choice(["{s} mode in the {r}", "set the {r} lights to {s}", "{r} lights {s} mode", "put the {r} in {s} mode",
+                                "{s} lights in the {r}", "switch the {r} lights to the {s} scene"]).format(s=sc, r=room)
+        d["plan"] = "Home control: a lighting scene, the preset under that name."
+        d["act"] = f'lights("{sc}", "{room}")'
+        d["deliver"] = lambda r: r + "."
+    elif kind == "plug":
+        dev = rng.choice(["water heater", "boiler", "coffee machine", "fan", "space heater", "christmas lights",
+                          "garden lights", "pool pump", "kettle", "air purifier", "dehumidifier", "printer"])
+        on = rng.random() < 0.65
+        verb = rng.choice(["open", "turn on", "switch on", "start", "power on", "put on"] if on else
+                          ["close", "turn off", "switch off", "stop", "power off", "shut off", "kill"])
+        d["user"] = rng.choice(["{v} the {d}", "{v} {d}", "can you {v} the {d}", "{v} the {d} please",
+                                "{d} {s}"]).format(v=verb, d=dev, s="on" if on else "off")
+        if dev in ("water heater", "boiler") and on and rng.random() < 0.4:
+            d["user"] = rng.choice(["open the {d} for a bath", "i want a warm shower, {v} the {d}", "heat the water",
+                                    "{v} the {d}, i want to shower in an hour"]).format(d=dev, v=verb)
+        d["plan"] = "Home control: a switched appliance, on or off."
+        d["act"] = f'switch("{dev}", "{"on" if on else "off"}")'
+        d["deliver"] = lambda r: r if r.endswith(".") else r + "."
     elif kind == "device":
         dev, st = rng.choice(P("DEVICE")), rng.choice(["on", "off"])
         d["user"] = rng.choice(["turn {s} the {d}", "switch {s} the {d}", "{d} {s} please", "can you turn the {d} {s}"]).format(s=st, d=dev)
