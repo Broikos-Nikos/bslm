@@ -887,6 +887,14 @@ alongside the usual answerable facts. Round thirteen's generation is the
 first to use the Pi's second IP (BSLM_PI_PROXY on), so the fresh searches
 run at about twice the rate; the cached answerable facts stay local.
 
+**Round eleven (2026-09-08, 00:10).** More honest give ups kept (0.40): overall
+**91.4%**, honest give up 79% (was 82% at 0.25, so raising the kept share of
+unfindable real facts did not move it, since the model still delivers a wrong
+answer instead of stopping), false delivery 3.9%, recovery 93%; facts near 72%.
+Twelve (learning rate sweep) trains now, thirteen (the fabricated unanswerable
+questions) after. The unanswerable batch in thirteen is the real test of the
+honest give up bar; eleven shows quantity of give ups alone is not enough.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
