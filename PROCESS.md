@@ -831,6 +831,23 @@ rate variants on eleven's data (Muon 0.002 and 0.008 against the 0.004
 used so far), the first training sweep. Each runs when the card is free,
 one after the other.
 
+**Round nine, a regression with a found cause (2026-09-07, 21:20).** Type
+aware page choice, two epochs: 39,222 trajectories, 35,655 train, val loss
+0.048; benchmark **89.3%**, facts 63% (71% for round seven on the same
+set), sports 1 of 8, composers 3 of 10, honest give up 62%, false delivery
+5.3%; the new "Wikipedia said" number: the quote the model read carried
+the answer in 54% of findable facts. The cause is in the data, not the
+change: the fact file had been refetched during the day and the sport
+facts came back last; the "cached facts first" ordering then put every
+sport fact behind the 16,000 cut, so round nine trained on no sport
+question at all (round seven had 2,994) and half the composer questions,
+and the model answered sport questions with composer searches. Fixed:
+the selection is now stratified by relation (cached first inside each
+relation, a weighted round robin across relations, 25% cap on any one),
+so a partial selection never drops a relation. Round ten, which had
+started with the same skew, is restarted on the fixed selection with the
+same page format change; eleven and twelve follow it again.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

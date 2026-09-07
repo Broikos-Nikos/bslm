@@ -1027,10 +1027,29 @@ def build(args):
     # its Wikipedia budget only on new facts
     from .agent_tools import cache
     sc = cache("search")
-    cached = [f for f in facts if sc.get(f"5|{f['subject']} {KEY[f['rel']]}".lower()) is not None]
-    fresh = [f for f in facts if sc.get(f"5|{f['subject']} {KEY[f['rel']]}".lower()) is None]
-    facts = cached + fresh
-    print(f"facts: {len(cached)} with cached searches, {len(fresh)} new", flush=True)
+    def is_cached(f):
+        return sc.get(f"5|{f['subject']} {KEY[f['rel']]}".lower()) is not None
+    # stratified by relation: cached first inside each relation, then a
+    # weighted round robin across relations with a cap, so the first N facts
+    # cover every relation in proportion (round nine lost the sport relation
+    # entirely because its facts sat at the end of a flat cached first order)
+    by_rel = {}
+    for f in facts:
+        by_rel.setdefault(f["rel"], []).append(f)
+    for rel in by_rel:
+        by_rel[rel].sort(key=lambda f: 0 if is_cached(f) else 1)
+    n_all = len(facts)
+    cap = int(0.25 * min(args.facts, n_all))
+    quota = {rel: min(len(v), max(1, int(round(len(v) / n_all * min(args.facts, n_all)))), cap) for rel, v in by_rel.items()}
+    ordered, rest = [], []
+    for rel, v in by_rel.items():
+        ordered.extend(v[:quota[rel]])
+        rest.extend(v[quota[rel]:])
+    rng.shuffle(ordered)
+    rng.shuffle(rest)
+    facts = ordered + rest
+    print(f"facts: {sum(is_cached(f) for f in facts[:args.facts])} with cached searches of the first {min(args.facts, n_all)}; "
+          f"per relation: " + ", ".join(f"{r} {quota[r]}" for r in sorted(quota)), flush=True)
     library_pool = [f"{s['title']} - {s['artist']}" for s in songs]
     base_now = datetime.now().replace(second=0, microsecond=0)
 
