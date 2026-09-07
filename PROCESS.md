@@ -789,6 +789,15 @@ test where a song request right after light commands was read as a light
 follow up. Both run from the round script with per round data directories
 and the trajectory cache, generation overlapping training.
 
+**Android shell, first build (2026-09-07, 17:15).** In training downtime:
+JDK 17 (tools/jdk), build tools 36, CMake 3.31.6 and NDK r27c through the
+SDK manager, and llama.cpp's own Android example app built from our source
+tree with KleidiAI (`tools/llama.cpp-src/examples/llama.android`, debug APK
+105 MB with arm64 and x86_64 libraries, 7 minutes). This is the shell the
+plan named: the JNI bridge to llama.cpp stays, the example's chat screen is
+replaced by our protocol (header, memory, tools, actions) in the next
+wrapper slot; the phone measurement still waits for the Poco F3 on USB.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
