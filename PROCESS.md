@@ -824,6 +824,13 @@ assistant polish) done in downtime. If facts plateau under 80%, the quoted
 answer the owner proposed ("Wikipedia said: ...") becomes the accepted
 form and the bar is judged on the quote, which the benchmark now reports.
 
+**Rounds eleven and twelve queued (2026-09-07, 20:50).** Eleven: round ten's
+page format from the trajectory cache with 40% of the unfindable facts
+kept instead of 25%, aimed at the honest give up bar. Twelve: two learning
+rate variants on eleven's data (Muon 0.002 and 0.008 against the 0.004
+used so far), the first training sweep. Each runs when the card is free,
+one after the other.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
