@@ -82,7 +82,7 @@ def dbp_rows(pattern, min_labels, want, page=2000):
     literal = "?av" in pattern
     cls = re.search(r"\?s a (dbo:\w+)", pattern).group(1)
     rest = re.sub(r"\?s a dbo:\w+;?\s*", "?s ", pattern, count=1)
-    sel = "?sl ?av" if literal else "?sl ?al"
+    sel = "?sl ?av ?n" if literal else "?sl ?al ?n"
     labels = "?s rdfs:label ?sl. FILTER(lang(?sl)='en')" if literal else f"?s rdfs:label ?sl. ?a rdfs:label ?al. {EN}"
     sub = f"{{ SELECT ?s (COUNT(?l) AS ?n) WHERE {{ ?s a {cls}; rdfs:label ?l }} GROUP BY ?s HAVING (COUNT(?l) >= {min_labels}) }}"
     out, off = [], 0
@@ -129,13 +129,15 @@ def main():
     f = (OUT / "facts.jsonl").open("a" if append else "w", encoding="utf-8")
     seen, total = set(), 0
 
-    def emit(rel, subj, ans, aliases=None):
+    def emit(rel, subj, ans, aliases=None, labels=0):
+        # labels: how many languages have an article, the fame proxy, kept so
+        # the benchmark can show a "well known subjects" score beside the full one
         nonlocal total
         subj, ans = clean_label(subj), ans.strip()
         if not (ok(subj) and ok(ans)) or subj.lower() == ans.lower() or (rel, subj) in seen:
             return 0
         seen.add((rel, subj))
-        f.write(json.dumps({"rel": rel, "subject": subj, "answer": ans, "aliases": aliases or []}, ensure_ascii=False) + "\n")
+        f.write(json.dumps({"rel": rel, "subject": subj, "answer": ans, "aliases": aliases or [], "labels": labels}, ensure_ascii=False) + "\n")
         total += 1
         return 1
 
@@ -158,9 +160,9 @@ def main():
                         v = None
                 if not v:
                     continue
-                n += emit(rel, subj, v)
+                n += emit(rel, subj, v, labels=int(r.get("n", {}).get("value", 0) or 0))
             else:
-                n += emit(rel, subj, clean_label(r["al"]["value"]))
+                n += emit(rel, subj, clean_label(r["al"]["value"]), labels=int(r.get("n", {}).get("value", 0) or 0))
         f.flush()
         log(f"{rel:16s} {n:5d} facts  {time.time() - t0:5.0f}s  total {total}")
 
@@ -168,7 +170,7 @@ def main():
     for cls, (sport, aliases) in ({} if "sport" in have else SPORTS).items():
         got, _ = dbp_rows(f"?s a {cls}. BIND('x' AS ?av)", 30, 500, page=500)
         for r in got:
-            n += emit("sport", r["sl"]["value"], sport, aliases)
+            n += emit("sport", r["sl"]["value"], sport, aliases, labels=int(r.get("n", {}).get("value", 0) or 0))
     f.flush()
     log(f"{'sport':16s} {n:5d} facts  {time.time() - t0:5.0f}s  total {total}")
 

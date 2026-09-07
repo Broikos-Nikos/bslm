@@ -605,8 +605,18 @@ class Env:
             return self.lights(g(0, "on").lower(), g(1, "all"), a[2] if len(a) > 2 else None)
         if name == "tool":
             want = g(0).strip().lower()
-            for tname, _ in self.tools:
+            for entry in self.tools:
+                tname = entry[0]
                 if want == tname.lower() or want in tname.lower() or tname.lower() in want:
+                    # a registered tool may carry a command (data/tools.json "cmd");
+                    # the wrapper runs it, the model only ever sees the text
+                    cmd = entry[2] if len(entry) > 2 else None
+                    if cmd:
+                        try:
+                            import subprocess
+                            subprocess.Popen(cmd, shell=True)
+                        except Exception as e:      # noqa: BLE001
+                            return f"{tname}: could not run it ({e})"
                     return f"{tname}: {g(1, 'open')} done"
             names = ", ".join(t for t, _ in self.tools) or "none registered"
             return f"no tool named '{g(0)}'; the tools are: {names}"

@@ -10,6 +10,11 @@ Numbers quoted are from `BENCHMARK.md` (regenerate with
 
 ## Where we are
 
+The loop model (stages 5 to 7 of OWN_MODEL.md) is the live work; its rounds,
+procedure and next steps are in OWN_MODEL.md, section "Where it stands and
+how a round runs". The dated log is PROCESS.md. The rest of this file is the
+router's plan.
+
 | measure | now | target |
 |---|---|---|
 | hand written suite, intent and slots both right | 89.5% | 95% |

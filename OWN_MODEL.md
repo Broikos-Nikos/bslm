@@ -218,6 +218,66 @@ step tasks and still be useless at recovery:
 | wasted steps | repeats a failed action unchanged | under 10% |
 | honest give up | when it cannot be done, says so instead of inventing | 95% |
 
+## Where it stands and how a round runs (2026-09-07)
+
+Six rounds of the loop model so far, all from the 72m 10B checkpoint, all
+on the RTX 4060, each one data generation (mostly from cache), a 25 minute
+fine tune, a GGUF export and the agent benchmark:
+
+| round | change | overall | facts | recovery | false delivery |
+|---|---|---|---|---|---|
+| 1 | first trajectories | 90.9% | 71.7% | 79% | 4.3% |
+| 2 | give ups capped, local share cut | 89.4% | 61.7% | 82% | 6.6% |
+| 3 | judgement names the answer, three phrasings | 87.4% | 60.0% | 73% | 7.5% |
+| 4 | actions copy the user's words | 89.8% | 69.0% | 78% | 6.4% |
+| 5 | answer first, cue anchored quotes | 91.3% | 72.0% | 89% | 5.6% |
+| 6 | infobox reading, aliases, hourly forecast | 92.3% | 76.0% | 92% | 4.1% |
+
+Rounds one to five each had their own held out set (a five point noise
+band on facts); the round six set is frozen from here on.
+
+**The procedure for one round.** Decide the change from the last round's
+misses, write the dated PROCESS.md entry, then:
+
+    FACTS=16000 PHRASINGS=2 LOCAL=8000 COMPOUND=3000 FOLLOWUP=3000     LIMIT=100 THREADS=8 GIVEUP_KEEP=0.25 bash pretrain/agent_pipeline.sh 72m-agentN 72m-10b
+
+which runs `pretrain/trajectories.py` (Wikipedia at one request per 0.8 s,
+everything cached under corpus/agent/cache), `pretrain/sft.py` (three
+epochs, loss on the model's lines only), `pretrain/export_gguf.py` plus
+Q8_0, and `bslm/agent_bench.py` against the frozen set. Read
+AGENT_BENCHMARK.md, especially the misses; log the numbers; commit as the
+author; decide the next change. Bars: 80% per family, recovery 80%, false
+delivery under 3%, wasted steps under 10%, honest give up 95%.
+
+**What the model can do now.** Fixed tasks (timers, alarms, reminders,
+lists, notes, calendar, maths, units, time, lights by level and scene,
+switched appliances, volume) at 100% on the benchmark; compound requests;
+songs through the library and YouTube at 95%; the umbrella advice from the
+real forecast; facts by search, page reading and retry at 76%, with the
+loop's recovery at 92%. Round seven adds follow ups with a light memory,
+the toolbox in the header, plain weather questions and the delivery check.
+
+## Next steps, in order
+
+1. Round seven results: facts, follow ups and tool refusals against the
+   bars; the delivery check reported beside the model alone.
+2. Facts under 80%: the remaining misses are ambiguous titles (several
+   works called "Dune"), infobox rows picked from the wrong line, and
+   obscure sport pages; the next levers are a "well known subjects" score
+   (the fact file now stores each subject's language count), a judgement
+   line that names the infobox row it reads, and a disambiguation step
+   when a title matches several results.
+3. One round of training variants (epochs 2, 3, 5; the learning rates)
+   once the data settles, since none has been tried.
+4. Honest give up and false delivery: more unanswerable questions in the
+   data with the exact honest sentence, so the model learns to stop.
+5. The 56m size on the same data, per stage 7, to see whether the smaller
+   file clears the bars; the 72m stays the default.
+6. Wrappers, only in training downtime: the tools registry
+   (data/tools.json with a command per tool), the phone benchmark when the
+   Poco F3 is on USB, the Android shell, the Tapo devices behind the smart
+   home names.
+
 ## Stage 8. The phone
 
 Export to GGUF (the architecture is Llama shaped, so the standard converter
