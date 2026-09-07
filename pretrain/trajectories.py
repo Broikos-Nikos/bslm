@@ -795,7 +795,10 @@ def followup_traj(rng, now, home, soul, facts_by_subject):
     document with the first turn compressed into one Earlier line."""
     tools = rand_tools(rng)
     env, st = new_env_with(now, tools=tools)
-    kind = rng.choice(["timer", "alarm", "list", "agenda", "weather", "lights", "fact", "fact", "unrelated"])
+    # a third of the second turns are unrelated to the first: the memory lines
+    # must not turn every short request into a follow up
+    kind = rng.choice(["timer", "alarm", "list", "agenda", "weather", "lights", "fact", "fact",
+                       "unrelated", "unrelated", "unrelated", "unrelated"])
     base = None
     if kind == "timer":
         d1 = rng.choice(pools.durations("en")); d2 = rng.choice(pools.durations("en"))

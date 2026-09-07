@@ -743,6 +743,23 @@ tokens, 56M at 1.2B tokens, to price the 150M question. Round nine (data,
 generating in parallel): type aware disambiguation when a title names
 several works, and a "well known subjects" fact score beside the full one.
 
+**PC wrapper, in training downtime (2026-09-07, 15:50).** The loop model now
+sits behind the router in both the GUI and the CLI (`bslm/hybrid.py`): a
+confident fixed task goes straight to the skills, everything else (unsure
+parses, questions, follow ups, weather, songs, light levels and scenes,
+tools) goes to the loop model; the router's actions are written into the
+loop's memory too, so "make it 20 minutes instead" works after a timer
+the router set, and "new question" clears the round. Tried live with the
+round seven model: timer, follow up, a fact, the real forecast, light
+levels, list follow up all correct; two misses noted for the data: "who
+composed the music for it" answered with the director, and a song request
+right after light commands was read as a light follow up. Round ten will
+carry three times more unrelated second turns so memory lines do not turn
+every short request into a follow up. Round eight variant one: two epochs
+equal three (91.4% overall, facts 71%), so training drops to two epochs;
+the well known subjects score is 74% on 31 facts, no easier than the full
+set, so obscurity is not what limits facts.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
