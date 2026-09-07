@@ -31,7 +31,7 @@ else
   say "trajectories"
   $PY -u -m pretrain.trajectories --facts "${FACTS:-20000}" --songs "${SONGS:-3000}" --local "${LOCAL:-14000}" \
       --compound "${COMPOUND:-3000}" --umbrella "${UMBRELLA:-1500}" --other "${OTHER:-1000}" --workers 8 \
-      --phrasings "${PHRASINGS:-1}" --giveup_keep "${GIVEUP_KEEP:-0.15}" \
+      --phrasings "${PHRASINGS:-1}" --giveup_keep "${GIVEUP_KEEP:-0.15}" --followup "${FOLLOWUP:-3000}" \
       > corpus/agent/gen.log 2>&1 || { say "generator failed, see corpus/agent/gen.log"; tail -5 corpus/agent/gen.log; exit 1; }
 fi
 tail -4 corpus/agent/gen.log | tee -a "$LOG"

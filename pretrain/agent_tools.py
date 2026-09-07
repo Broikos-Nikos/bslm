@@ -23,6 +23,7 @@ Actions, as the model writes them on an `Act:` line:
     calc("348 / 12")  convert(5, "km", "miles")  time()
     lights("off", "kitchen")  lights("half", "living room")  lights("movie", "living room")
     switch("water heater", "on")   a smart plug or appliance, on or off
+    tool("qr file receiver", "open")   one of the tools listed in the header
     device("tv", "off")  volume(30)
     ask("which list?")     hands the turn back to the user
 """
@@ -450,7 +451,8 @@ class Env:
     data/state.json in the app). now: the clock the session lives in.
     library: the user's music library as 'Title - Artist' strings."""
 
-    def __init__(self, state_file, now=None, library=None, online=True):
+    def __init__(self, state_file, now=None, library=None, online=True, tools=None):
+        self.tools = list(tools or [])      # (name, description) registered by the wrapper
         from bslm import skills
         self.skills = skills
         skills.STATE = Path(state_file)
@@ -601,6 +603,13 @@ class Env:
             return b.time_query({"_text": ""})
         if name == "lights":
             return self.lights(g(0, "on").lower(), g(1, "all"), a[2] if len(a) > 2 else None)
+        if name == "tool":
+            want = g(0).strip().lower()
+            for tname, _ in self.tools:
+                if want == tname.lower() or want in tname.lower() or tname.lower() in want:
+                    return f"{tname}: {g(1, 'open')} done"
+            names = ", ".join(t for t, _ in self.tools) or "none registered"
+            return f"no tool named '{g(0)}'; the tools are: {names}"
         if name == "switch":
             st = g(1, "on").lower()
             on = st not in ("off", "close", "closed", "stop", "0")

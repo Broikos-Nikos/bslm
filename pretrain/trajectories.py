@@ -234,8 +234,46 @@ class Traj:
         return out
 
 
-def header(now, home, soul):
-    return f"Today is {now.strftime('%A %Y-%m-%d, %H:%M')}. Home: {home}. Facts: {soul}."
+def header(now, home, soul, tools=None, earlier=None):
+    """The context the model sees before the user's line: date and soul, the
+    tools the wrapper registered, and one compressed line per earlier turn
+    of this round (no result text, ever: the model must not quote stale
+    results)."""
+    h = f"Today is {now.strftime('%A %Y-%m-%d, %H:%M')}. Home: {home}. Facts: {soul}."
+    if tools:
+        h += "\nTools: " + "; ".join(f"{n} ({d})" for n, d in tools)
+    for u, act, said in (earlier or []):
+        h += f'\nEarlier: "{u}" -> {act or "no action"} -> "{said[:90]}"'
+    return h
+
+
+def new_env_with(now, library=None, tools=None):
+    env, st = new_env(now, library)
+    env.tools = list(tools or [])
+    return env, st
+
+
+TOOLS = [   # (name, what it does, the verbs people use for it); a wrapper registers real ones the same way
+    ("qr file receiver", "receives files sent by QR code", ["open", "start", "launch"]),
+    ("obs", "records the screen", ["start recording with", "stop recording with", "open"]),
+    ("vpn", "the VPN connection", ["connect", "disconnect", "turn on", "turn off"]),
+    ("backup", "backs up the documents folder", ["run", "start"]),
+    ("scanner", "scans a document to PDF", ["open", "start", "run"]),
+    ("print queue", "shows the printer queue", ["open", "show", "check"]),
+    ("music server", "the home music server", ["restart", "stop", "start"]),
+    ("zorbo", "syncs the photos to the NAS", ["run", "start", "open"]),
+    ("mailbot", "checks the inbox and reads new mail", ["run", "open", "start"]),
+    ("ticker", "shows the stock ticker", ["open", "close", "show"]),
+    ("garage", "the garage door", ["open", "close"]),
+    ("nightwatch", "arms the cameras", ["arm", "disarm", "open"]),
+    ("kiosk", "the shop kiosk screen", ["open", "close", "restart"]),
+    ("timelapse", "the timelapse camera", ["start", "stop"]),
+]
+
+
+def rand_tools(rng, k=None):
+    k = rng.choice([0, 0, 1, 2, 3, 4]) if k is None else k
+    return [(n, d) for n, d, _ in rng.sample(TOOLS, k)]
 
 
 def new_env(now, library=None):
@@ -449,8 +487,9 @@ def local_cases(rng, now):
     kind = rng.choice(["timer", "timer", "timer_cancel", "timer_left", "alarm", "alarm", "remind", "remind",
                        "reminders", "list_add", "list_add", "list_read", "note", "notes", "event", "event",
                        "agenda", "agenda", "calc", "calc", "convert", "convert", "time", "lights", "lights",
-                       "lights_level", "lights_level", "lights_scene", "plug", "plug", "plug", "device", "volume"])
-    d = {"kind": kind, "setup": [], "turns": []}
+                       "lights_level", "lights_level", "lights_scene", "plug", "plug", "plug", "device", "volume",
+                       "tool", "tool", "tool", "weather", "weather"])
+    d = {"kind": kind, "setup": [], "turns": [], "tools": rand_tools(rng)}
     if kind == "timer":
         dur = rng.choice(pools.durations("en"))
         d["user"] = rng.choice(["set a timer for {d}", "timer {d}", "start a {d} timer", "remind me in {d}",
@@ -589,6 +628,34 @@ def local_cases(rng, now):
         d["plan"] = "Home control: set the lights."
         d["act"] = f'lights("{st}", "{room}"' + (f', "{color}")' if color else ")")
         d["deliver"] = lambda r: r + "."
+    elif kind == "tool":
+        # a tool from the header's list, or one that is not there (a third of the time)
+        listed = [t for t in TOOLS if t[0] in {n for n, _ in d["tools"]}]
+        if not listed or rng.random() < 0.3:
+            name, _, verbs = rng.choice([t for t in TOOLS if t[0] not in {n for n, _ in d["tools"]}] or TOOLS)
+            verb = rng.choice(verbs)
+            d["user"] = rng.choice(["{v} the {n}", "{v} {n}", "can you {v} the {n}", "{v} the {n} please"]).format(v=verb, n=name)
+            names = ", ".join(n for n, _ in d["tools"])
+            d["plan"] = f"No tool called {name} in my list; say what I have instead of pretending." if d["tools"] else \
+                "No tools are registered on this device; say so."
+            d["act"] = None
+            d["deliver"] = (lambda r, name=name, names=names: f"I have no tool called {name}. The tools I have: {names}.") if d["tools"] else \
+                (lambda r, name=name: f"I have no tool called {name}, and no tools are registered on this device.")
+        else:
+            name, _, verbs = rng.choice(listed)
+            verb = rng.choice(verbs)
+            d["user"] = rng.choice(["{v} the {n}", "{v} {n}", "can you {v} the {n}", "{v} the {n} please", "launch {n}" if verb == "open" else "{v} {n} now"]).format(v=verb, n=name)
+            d["plan"] = f"{name} is in my tool list: use it."
+            d["act"] = f'tool("{name}", "{verb}")'
+            d["deliver"] = lambda r, name=name, verb=verb: f"Done: {verb} {name}." if "done" in r else r
+    elif kind == "weather":
+        place = rng.choice(HOMES + ["London", "Paris", "Berlin", "New York", "Tokyo", "Rome"])
+        day = rng.choice(["today", "tomorrow", "tomorrow", "the day after tomorrow", "friday", "saturday"])
+        d["user"] = rng.choice(["whats the weather {d} in {p}", "weather {d} in {p}", "is it going to rain {d} in {p}",
+                                "do i need an umbrella {d} in {p}", "how hot is it {d} in {p}", "{p} weather {d}"]).format(d=day, p=place)
+        d["plan"] = "A forecast question: read the forecast for that place and day."
+        d["act"] = f'weather("{place}", "{day}")'
+        d["deliver"] = lambda r, place=place, day=day: weather_summary(r, place, day)
     elif kind == "lights_level":
         room = rng.choice(P("ROOM"))
         lv = rng.choice(["full", "high", "half", "soft", "low", "dim", "25", "50", "75", "100", "10"])
@@ -639,16 +706,42 @@ def local_cases(rng, now):
     return d
 
 
-def local_traj(rng, now, home, soul, case=None):
+def weather_summary(r, place, day):
+    if r.startswith("no forecast"):
+        return f"I could not get a forecast for {place}: {r.split(':', 1)[-1].strip()}."
+    temps = [int(x) for x in re.findall(r"(-?\d+)C", r)]
+    rain = re.findall(r"(\d\d:\d\d) -?\d+C (\d+)%", r)
+    wet = [(h, int(p)) for h, p in rain if int(p) >= 40]
+    lo, hi = (min(temps), max(temps)) if temps else ("?", "?")
+    if wet:
+        h, p = max(wet, key=lambda x: x[1])
+        return f"{day.capitalize()} in {place}: {lo} to {hi}C, rain likely, up to {p}% around {h}. Take an umbrella."
+    return f"{day.capitalize()} in {place}: {lo} to {hi}C, no rain expected."
+
+
+def local_traj(rng, now, home, soul, case=None, earlier=None, env=None, tools=None):
     d = case or local_cases(rng, now)
-    env, st = new_env(now)
+    tools = d.get("tools") if tools is None else tools
+    own_env = env is None
+    if own_env:
+        env, st = new_env_with(now, tools=tools)
+    else:
+        env.tools = list(tools or [])
+        st = None
     for a in d["setup"]:
         env.act(a)
-    t = Traj(header(now, home, soul), d["user"])
+    t = Traj(header(now, home, soul, tools=tools, earlier=earlier), d["user"])
     t.model("Plan", d["plan"])
     if "ask" in d:
         t.model("Ask", d["ask"][0])
         t.user(d["ask"][1])
+    if d["act"] is None:                      # nothing to run: the tool is not there
+        t.model("Deliver", d["deliver"](""))
+        truth = {"family": "local", "kind": d["kind"], "user": d["user"], "act": None, "setup": d["setup"],
+                 "ask": d.get("ask"), "tools": tools}
+        if own_env:
+            drop_state(st)
+        return t, truth
     r = t.act(env, d["act"])
     bad = r.lower().startswith(("how ", "i could", "unknown", "there is no", "no timer", "nothing", "no ", "sorry")) or "failed" in r.lower() or "?" in r
     if bad and d["kind"] not in ("timer_cancel", "timer_left", "agenda", "list_read", "reminders", "notes"):
@@ -657,14 +750,134 @@ def local_traj(rng, now, home, soul, case=None):
     else:
         t.model("Deliver", d["deliver"](r))
     truth = {"family": "local", "kind": d["kind"], "user": d["user"], "act": d["act"], "setup": d["setup"],
-             "ask": d.get("ask")}
-    drop_state(st)
+             "ask": d.get("ask"), "tools": tools}
+    if own_env:
+        drop_state(st)
     return t, truth
+
+
+# ---------------------------------------------------------------- follow ups
+def followup_traj(rng, now, home, soul, facts_by_subject):
+    """Two turns in one round: the second refers to the first ("make it 20
+    minutes instead", "and friday?", "who composed the music for it"), or is
+    unrelated, and the model says which. The second turn is its own
+    document with the first turn compressed into one Earlier line."""
+    tools = rand_tools(rng)
+    env, st = new_env_with(now, tools=tools)
+    kind = rng.choice(["timer", "alarm", "list", "agenda", "weather", "lights", "fact", "fact", "unrelated"])
+    base = None
+    if kind == "timer":
+        d1 = rng.choice(pools.durations("en")); d2 = rng.choice(pools.durations("en"))
+        base = (f"set a timer for {d1}", f'timer("{d1}")', lambda r: r)
+        fu = rng.choice([(f"make it {d2} instead", "Follow up to the timer: cancel it and set the new length.", [f"cancel_timer()", f'timer("{d2}")'], lambda rs: f"Timer changed to {d2}."),
+                         ("cancel that", "Follow up: cancel the timer I just set.", ["cancel_timer()"], lambda rs: "Timer cancelled."),
+                         ("how long is left", "Follow up: the remaining time on that timer.", ["timer_left()"], lambda rs: rs[-1])])
+    elif kind == "alarm":
+        t1, t2 = rng.choice(pools.times("en")), rng.choice(pools.times("en")); day = rng.choice(["tomorrow", "monday", "friday"])
+        base = (f"wake me up at {t1} {day}", f'alarm("{t1}", "{day}")', lambda r: r)
+        fu = rng.choice([(f"make it {t2}", "Follow up to the alarm: replace it with the new time.", ["cancel_alarm()", f'alarm("{t2}", "{day}")'], lambda rs: rs[-1]),
+                         ("cancel it", "Follow up: cancel that alarm.", ["cancel_alarm()"], lambda rs: rs[-1])])
+    elif kind == "list":
+        ln = rng.choice(["shopping", "grocery", "packing"]); items = rng.sample(P("ITEM"), 2); more = rng.choice([x for x in P("ITEM") if x not in items])
+        base = (f"add {items[0]} and {items[1]} to the {ln} list", f'list_add("{ln}", {json.dumps(items)})', lambda r: f"Added {items[0]}, {items[1]} to the {ln} list.")
+        fu = rng.choice([(f"and {more}", f"Follow up: add that to the same list, the {ln} list.", [f'list_add("{ln}", ["{more}"])'], lambda rs: f"Added {more} to the {ln} list."),
+                         (f"also {more} please", f"Follow up: add that to the same list, the {ln} list.", [f'list_add("{ln}", ["{more}"])'], lambda rs: f"Added {more} to the {ln} list."),
+                         ("whats on it now", f"Follow up: read the {ln} list back.", [f'list_read("{ln}")'], lambda rs: f"Your {ln} list: " + rs[-1].split(":", 1)[-1].strip() + ".")])
+    elif kind == "agenda":
+        d1, d2 = rng.sample(["today", "tomorrow", "monday", "friday", "wednesday"], 2)
+        for _ in range(rng.randrange(0, 3)):
+            env.act(f'event("{rng.choice(P("EVENT"))}", "{d1}", "{rng.choice(pools.times("en"))}")')
+        base = (f"what do i have {d1}", f'agenda("{d1}")', lambda r: (f"Nothing in the calendar for {d1}, you are free." if "Nothing" in r else f"On {d1}: " + "; ".join(x.strip() for x in r.splitlines()[1:]) + "."))
+        fu = ((f"and {d2}?", f"Follow up: the same question for {d2}.", [f'agenda("{d2}")'],
+               lambda rs: (f"Nothing in the calendar for {d2}, you are free." if "Nothing" in rs[-1] else f"On {d2}: " + "; ".join(x.strip() for x in rs[-1].splitlines()[1:]) + ".")))
+    elif kind == "weather":
+        place, place2 = rng.sample(HOMES, 2); d1, d2 = rng.sample(["today", "tomorrow", "the day after tomorrow", "friday"], 2)
+        base = (f"whats the weather {d1} in {place}", f'weather("{place}", "{d1}")', lambda r: weather_summary(r, place, d1))
+        fu = rng.choice([(f"and {d2}?", f"Follow up: the same place, {d2}.", [f'weather("{place}", "{d2}")'], lambda rs: weather_summary(rs[-1], place, d2)),
+                         (f"and in {place2}?", f"Follow up: the same day, {place2}.", [f'weather("{place2}", "{d1}")'], lambda rs: weather_summary(rs[-1], place2, d1))])
+    elif kind == "lights":
+        room, room2 = rng.sample(P("ROOM"), 2); lv, lv2 = rng.sample(["full", "high", "half", "soft", "low"], 2)
+        base = (f"{room} lights {lv}", f'lights("{lv}", "{room}")', lambda r: r + ".")
+        fu = rng.choice([(f"make it {lv2}", f"Follow up: the same room, {lv2}.", [f'lights("{lv2}", "{room}")'], lambda rs: rs[-1] + "."),
+                         (f"and the {room2}", f"Follow up: the same level in the {room2}.", [f'lights("{lv}", "{room2}")'], lambda rs: rs[-1] + "."),
+                         ("turn them off", f"Follow up: the {room} lights off.", [f'lights("off", "{room}")'], lambda rs: rs[-1] + ".")])
+    elif kind == "fact":
+        pairs = [("director", "composer", "who composed the music for it", "film music composer", "the composer"),
+                 ("composer", "director", "and who directed it", "film director", "the director"),
+                 ("capital", "currency", "and what currency do they use", "currency", "the currency"),
+                 ("currency", "capital", "and its capital?", "capital", "the capital")]
+        r1, r2, q2, key2, noun2 = rng.choice(pairs)
+        cands = [s for s, rels in facts_by_subject.items() if r1 in rels and r2 in rels]
+        if not cands:
+            drop_state(st)
+            return None, None
+        subj = rng.choice(cands)
+        f1, f2 = facts_by_subject[subj][r1], facts_by_subject[subj][r2]
+        t1, truth1 = fact_traj(f1, rng, now, home, soul, "direct")
+        if t1 is None or truth1.get("answer") is None:
+            drop_state(st)
+            return None, None
+        said1 = next(l[len("Deliver: "):] for l, m in t1.lines if l.startswith("Deliver:"))
+        act1 = next(l[len("Act: "):] for l, m in reversed(t1.lines) if l.startswith("Act:"))
+        earlier = [(truth1["user"], act1, said1)]
+        t = Traj(header(now, home, soul, tools=tools, earlier=earlier), q2)
+        t.model("Plan", f"Follow up about {subj} from the earlier turn: search {noun2} of it.")
+        r = t.act(env, f'search("{subj} {key2}")')
+        items = env.last_results
+        a2 = f2["answer"]; cands2 = [a2] + [x for x in f2.get("aliases", []) if x]
+        hit = next((i for i, x in enumerate(items) if any(found_in(c, x["snippet"]) for c in cands2)), None) if items and "error" not in items[0] else None
+        if hit is None:
+            page_i = next((i for i, x in enumerate(items) if norm(subj) in norm(x["title"])), None) if items and "error" not in items[0] else None
+            if page_i is not None:
+                t.model("Judge", f"The results mention {subj} but none states {noun2}. Open result {page_i + 1}, the page itself.")
+                page = t.act(env, f"open({page_i + 1})")
+                a_found = next((c for c in cands2 if found_in(c, page)), None)
+                if a_found:
+                    t.model("Judge", f'The page says: "{fragment(a_found, page, rel=r2)}", so {noun2} is {a_found}. That answers it.')
+                    t.model("Deliver", SAY[r2].format(s=subj, a=a_found) + f" (Wikipedia: {items[page_i]['title']}).")
+                    drop_state(st)
+                    return t, {"family": "followup", "kind": "fact", "user": q2, "earlier": earlier, "answer": a2, "aliases": f2.get("aliases", []), "subject": subj}
+            t.model("Judge", f"Not stated in the results; say so rather than guess.")
+            t.model("Deliver", f"I could not find {noun2} of {subj} in the search results.")
+            drop_state(st)
+            return t, {"family": "followup", "kind": "fact", "user": q2, "earlier": earlier, "answer": None, "subject": subj}
+        a_found = next(c for c in cands2 if found_in(c, items[hit]["snippet"]))
+        t.model("Judge", f'Result {hit + 1} states it: "{fragment(a_found, items[hit]["snippet"], rel=r2)}", so {noun2} is {a_found}. That answers it.')
+        t.model("Deliver", SAY[r2].format(s=subj, a=a_found) + f" (Wikipedia: {items[hit]['title']}).")
+        drop_state(st)
+        return t, {"family": "followup", "kind": "fact", "user": q2, "earlier": earlier, "answer": a2, "aliases": f2.get("aliases", []), "subject": subj}
+    else:   # unrelated second turn after any base
+        c1 = local_cases(rng, now)
+        while c1["kind"] in ("tool",) or "ask" in c1 or c1["act"] is None:
+            c1 = local_cases(rng, now)
+        for a in c1["setup"]:
+            env.act(a)
+        base = (c1["user"], c1["act"], c1["deliver"])
+        c2 = local_cases(rng, now)
+        while c2["kind"] in ("tool", c1["kind"]) or "ask" in c2 or c2["act"] is None or c2["setup"]:
+            c2 = local_cases(rng, now)
+        fu = (c2["user"], "New request, not related to the earlier turn: " + c2["plan"][0].lower() + c2["plan"][1:], [c2["act"]], lambda rs, c2=c2: c2["deliver"](rs[-1]))
+    # turn one for real, so the environment carries its state into turn two
+    u1, act1, dl1 = base
+    r1 = env.act(act1)
+    said1 = dl1(r1)
+    earlier = [(u1, act1, said1)]
+    u2, plan2, acts2, dl2 = fu
+    t = Traj(header(now, home, soul, tools=tools, earlier=earlier), u2)
+    t.model("Plan", plan2)
+    rs = []
+    for k, a in enumerate(acts2):
+        rs.append(t.act(env, a))
+        if k + 1 < len(acts2):
+            t.model("Judge", "Done; now the second step.")
+    t.model("Deliver", dl2(rs))
+    drop_state(st)
+    return t, {"family": "followup", "kind": kind, "user": u2, "earlier": earlier, "setup": [act1], "acts": acts2, "tools": tools}
 
 
 def compound_traj(rng, now, home, soul):
     a, b = local_cases(rng, now), local_cases(rng, now)
-    if "ask" in a or "ask" in b or a["kind"] == b["kind"] or a["setup"] or b["setup"]:
+    if "ask" in a or "ask" in b or a["kind"] == b["kind"] or a["setup"] or b["setup"] or a["act"] is None or b["act"] is None or "tool" in (a["kind"], b["kind"]):
         return None, None
     env, st = new_env(now)
     user = f"{a['user']} {rng.choice(['and', 'and then', 'then', 'and also', ', also'])} {b['user']}"
@@ -762,6 +975,17 @@ def build(args):
                       r"city-state|polity|tribe|people|culture|pattin|assyria|babylon|hittite|\b\d{3,4}\b", re.I)
     facts = [f for f in facts if f["rel"] not in ("capital", "currency", "capital_region") or not hist.search(f["subject"])]
     songs = [json.loads(l) for l in (AGENT / "songs.jsonl").open(encoding="utf-8")]
+    frozen = AGENT / "test_frozen.jsonl"
+    if frozen.exists():
+        fz = [json.loads(l) for l in frozen.open(encoding="utf-8")]
+        fz_facts = {(x["rel"], norm(x["subject"])) for x in fz if x["family"] == "fact"}
+        fz_songs = {norm(x["title"]) for x in fz if x["family"] == "song"}
+        facts = [f for f in facts if (f["rel"], norm(f["subject"])) not in fz_facts]
+        songs = [s for s in songs if norm(s["title"]) not in fz_songs]
+        print(f"frozen benchmark: {len(fz_facts)} facts and {len(fz_songs)} songs kept out of training", flush=True)
+    facts_by_subject = {}
+    for f in facts:
+        facts_by_subject.setdefault(f["subject"], {})[f["rel"]] = f
     places = [json.loads(l) for l in (AGENT / "places.jsonl").open(encoding="utf-8")]
     rng.shuffle(facts)
     rng.shuffle(songs)
@@ -870,6 +1094,17 @@ def build(args):
         keep(t, truth, "test" if i < args.umbrella // 20 else ("val" if i < args.umbrella // 10 else "train"))
         if i % 200 == 0:
             print(f"umbrella {i}/{args.umbrella}  {time.time() - t0:.0f}s", flush=True)
+    for i in range(args.followup):
+        r = random.Random(args.seed * 86028121 + i)
+        now, home, soul, _ = session(r)
+        try:
+            t, truth = followup_traj(r, now, home, soul, facts_by_subject)
+        except Exception as e:      # noqa: BLE001
+            stats["followup_error"] = stats.get("followup_error", 0) + 1
+            continue
+        keep(t, truth, "test" if i < args.followup // 20 else ("val" if i < args.followup // 10 else "train"))
+        if i % 500 == 0:
+            print(f"followup {i}/{args.followup}  {time.time() - t0:.0f}s", flush=True)
     for i in range(args.other):
         r = random.Random(args.seed * 67867967 + i)
         now, home, soul, _ = session(r)
@@ -924,6 +1159,7 @@ def main():
     ap.add_argument("--compound", type=int, default=4000)
     ap.add_argument("--umbrella", type=int, default=2000)
     ap.add_argument("--other", type=int, default=1200)
+    ap.add_argument("--followup", type=int, default=3000)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--yt_delay", type=float, default=0.4)
     ap.add_argument("--max_chars", type=int, default=3600)

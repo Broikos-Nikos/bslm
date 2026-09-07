@@ -37,6 +37,8 @@ from .agent import Agent
 
 ROOT = Path(__file__).resolve().parent.parent
 TEST = ROOT / "corpus" / "agent" / "test.jsonl"
+FROZEN = ROOT / "corpus" / "agent" / "test_frozen.jsonl"
+FROZEN_FAMILIES = ("fact", "song", "umbrella", "compound", "other")   # fixed since round six; local and followup are template made
 OUT = ROOT / "AGENT_BENCHMARK.md"
 FAIL_WORDS = ("no results", "no match", "there is no", "not found", "failed", "nothing", "could not", "unknown")
 GIVEUP_WORDS = ("could not", "cannot", "can't", "did not find", "couldn't", "not find", "no result")
@@ -56,12 +58,23 @@ def same_act(expected, got):
     return fa == fb
 
 
-def judge(task, r, env):
-    """-> (correct, honest_expected, honest_said, invented)"""
+def judge(task, r, env, raw=False):
+    """-> (correct, honest_expected, honest_said, invented); raw judges the
+    model's own delivery, before the runtime's check."""
     fam = task["family"]
-    ans = r["answer"]
+    ans = r.get("raw_answer", r["answer"]) if raw else r["answer"]
     acts = [a for a, _ in r["trace"]]
     said_giveup = any(w in ans.lower() for w in GIVEUP_WORDS)
+    if fam == "followup":
+        if task.get("kind") == "fact":
+            fam = "fact"
+        else:
+            ok = all(any(same_act(e, a) for a in acts) for e in task["acts"])
+            return ok, False, said_giveup, False
+    if fam == "local" and task.get("act") is None:
+        # a tool that is not registered: no tool call, and say so
+        ok = not any(a.startswith("tool(") for a in acts) and ("no tool" in ans.lower() or "no tools" in ans.lower())
+        return ok, True, ok, not ok
     if fam == "fact":
         if task["answer"] is None:
             return said_giveup, True, said_giveup, not said_giveup
@@ -116,10 +129,13 @@ def run_task(agent, task, rng):
     if task["family"] == "song":
         library = [f"{task['title']} - {task['artist']}"] if task.get("in_library") else []
         library += ["Bohemian Rhapsody - Queen", "Billie Jean - Michael Jackson", "Yesterday - The Beatles"]
-    env = Env(f.name, now=datetime.now().replace(second=0, microsecond=0), library=library)
+    env = Env(f.name, now=datetime.now().replace(second=0, microsecond=0), library=library, tools=task.get("tools") or [])
     for a in task.get("setup") or []:
         env.act(a)
     agent.env = env
+    agent.tools = [tuple(t) for t in (task.get("tools") or [])]
+    agent.memory = [tuple(e) for e in (task.get("earlier") or [])]
+    agent.last_time = None
     t0 = time.time()
     r = agent.run(task["user"])
     if r["kind"] == "ask" and task.get("ask"):
@@ -144,7 +160,11 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     args = ap.parse_args()
     rng = random.Random(args.seed)
-    tasks = [json.loads(l) for l in TEST.open(encoding="utf-8")]
+    fresh = [json.loads(l) for l in TEST.open(encoding="utf-8")]
+    frozen = [json.loads(l) for l in FROZEN.open(encoding="utf-8")] if FROZEN.exists() else []
+    tasks = [t for t in frozen if t["family"] in FROZEN_FAMILIES] + [t for t in fresh if t["family"] not in FROZEN_FAMILIES]
+    if not frozen:
+        tasks = fresh
     by_fam = defaultdict(list)
     for t in tasks:
         by_fam[t["family"]].append(t)
@@ -153,17 +173,24 @@ def main():
         rng.shuffle(ts)
         chosen += ts[:args.limit]
     agent = Agent(env=Env(ROOT / "data" / "bench_state.json"), model=args.model)
-    per = defaultdict(lambda: [0, 0])          # correct, n
+    per = defaultdict(lambda: [0, 0])          # correct, n  (with the runtime check)
+    per_raw = defaultdict(int)                 # correct, the model alone
     per_rel = defaultdict(lambda: [0, 0])      # facts by relation
     loop = {"recover_ok": 0, "recover_n": 0, "false": 0, "deliver_n": 0, "wasted": 0, "steps": 0,
             "giveup_ok": 0, "giveup_n": 0}
     misses, t0 = [], time.time()
     try:
         for i, task in enumerate(chosen):
-            r, env = run_task(agent, task, rng)
+            try:
+                r, env = run_task(agent, task, rng)
+            except Exception as e:      # noqa: BLE001
+                print(f"task failed: {task['user'][:60]!r}: {str(e)[:80]}", flush=True)
+                r, env = {"kind": "fail", "answer": "", "trace": [], "wasted": 0}, Env(ROOT / "data" / "bench_state.json")
             ok, honest_expected, honest_said, invented = judge(task, r, env)
+            ok_raw = judge(task, r, env, raw=True)[0]
             per[task["family"]][1] += 1
             per[task["family"]][0] += ok
+            per_raw[task["family"]] += ok_raw
             if task["family"] == "fact":
                 per_rel[task["rel"]][1] += 1
                 per_rel[task["rel"]][0] += ok
@@ -186,12 +213,12 @@ def main():
                       "  ".join(f"{k} {100 * v[0] / v[1]:.0f}%" for k, v in sorted(per.items())), flush=True)
     finally:
         agent.stop()
-    rows = ["| family | n | correct | bar |", "|---|---|---|---|"]
+    rows = ["| family | n | model alone | with the delivery check | bar |", "|---|---|---|---|---|"]
     fails = 0
     for fam, (c, n) in sorted(per.items()):
         pct = 100 * c / n
         fails += pct < 80
-        rows.append(f"| {fam} | {n} | {pct:.1f}% | {'pass' if pct >= 80 else '**FAIL**'} |")
+        rows.append(f"| {fam} | {n} | {100 * per_raw[fam] / n:.1f}% | {pct:.1f}% | {'pass' if pct >= 80 else '**FAIL**'} |")
     tot_c, tot_n = sum(v[0] for v in per.values()), sum(v[1] for v in per.values())
     rec = 100 * loop["recover_ok"] / max(1, loop["recover_n"])
     fal = 100 * loop["false"] / max(1, loop["deliver_n"])
@@ -199,8 +226,13 @@ def main():
     giv = 100 * loop["giveup_ok"] / max(1, loop["giveup_n"])
     md = f"""# Agent benchmark
 
-Held out tasks from `corpus/agent/test.jsonl`, run through `bslm.agent.Agent`
-with the fine tuned model on llama-server (CPU, 4 threads) and the real tools.
+Held out tasks (`corpus/agent/test_frozen.jsonl`, fixed since round six, for
+facts, songs, weather, compound and small talk; fresh template made tasks for
+local and follow ups), run through `bslm.agent.Agent` with the fine tuned
+model on llama-server (CPU) and the real tools. "Model alone" judges what the
+model delivered; "with the delivery check" judges what the runtime says after
+its coded check that a delivered fact appears in the last result and is not
+the subject (OWN_MODEL.md stage 6).
 Generated by `python -m bslm.agent_bench --limit {args.limit}`; model
 `{agent.model.name}`; {len(chosen)} tasks in {(time.time() - t0) / 60:.1f} minutes.
 

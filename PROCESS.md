@@ -706,6 +706,25 @@ subject's language count so a "well known subjects" score can sit beside
 the full one. Unchanged: model first, wrappers in downtime, local GPU, the
 80 MB cap.
 
+**Round six (2026-09-07, 13:20).** Infobox reading, aliases, hourly forecast,
+give ups kept at 25%: 32,826 trajectories (21,887 facts, 3,400 more than
+round five became findable), 29,948 train, 15.6M tokens, 429 steps, val loss
+0.053. Its benchmark crashed once on prompts longer than the 2048 context
+(infobox pages are longer), fixed by a 4096 context and by counting a
+refused prompt as a failed task; rerun: **92.3% overall, the best**, facts
+76.0%, songs 95.4%, weather 88.0%, compound 100%, local and small talk
+100%; **recovery 92.5%**, false delivery 4.1%, wasted 0.0%, honest give up
+67% of 9. Composers went from 1 of 9 to 5 of 10. The remaining fact misses
+split three ways: titles that name several works ("Dune", "Silence", "The
+Sea", "The Strain") where the model's answer is right for the other work,
+infobox rows picked from the wrong line ("2025-08-28 developed Omeka",
+"Keystone Studios directed"), and obscure sport pages. This round's held
+out set is now the frozen benchmark. Round seven adds, together: follow ups
+with a light memory (Earlier lines, a hard new round rule in the runtime),
+the toolbox in the header with tool() and honest refusals for tools not
+listed, plain weather questions, the smart home actions, and the delivery
+check in the runtime reported as a second number.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
