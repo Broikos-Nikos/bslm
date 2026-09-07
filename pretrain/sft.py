@@ -56,6 +56,27 @@ def pack(ids, mask, seq, eot):
     return torch.from_numpy(X), torch.from_numpy(M)
 
 
+def wait_for_gpu(limit_mb=3000, poll=60):
+    """The card is shared. Start only when whatever else runs on it has left
+    enough memory; never touch that other workload."""
+    import subprocess
+    waited = 0
+    while True:
+        try:
+            used = int(subprocess.check_output(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+                                               text=True).strip().splitlines()[0])
+        except Exception:      # noqa: BLE001
+            return
+        if used < limit_mb:
+            if waited:
+                print(f"gpu free after {waited // 60} min, starting", flush=True)
+            return
+        if waited % 600 == 0:
+            print(f"gpu busy ({used} MB used), waiting", flush=True)
+        time.sleep(poll)
+        waited += poll
+
+
 def masked_loss(logits, y, m):
     l = F.cross_entropy(logits.float().view(-1, logits.size(-1)), y.reshape(-1), reduction="none")
     return (l * m.reshape(-1)).sum() / m.sum().clamp(min=1)
@@ -105,6 +126,7 @@ def main():
     torch.manual_seed(1337)
     torch.backends.cuda.matmul.allow_tf32 = True
     device = "cuda"
+    wait_for_gpu()
     run = RUNS / args.name
     run.mkdir(parents=True, exist_ok=True)
     log = (run / "log.txt").open("a", encoding="utf-8")

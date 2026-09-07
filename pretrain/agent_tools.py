@@ -238,6 +238,19 @@ def wiki_extract(title, chars=900):
     hit = c.get(key)
     if hit is not None:
         return hit
+    old = cache("page2").get(key)
+    if old is not None and not old.startswith("could not open"):
+        # the same page as fetched before, rows were joined with "; " and the
+        # lead followed the last row after ". "; split it back, no refetch
+        parts = old.split("; ")
+        rows, lead = [], old
+        if len(parts) > 1 and ": " in parts[0]:
+            last, sep, tail = parts[-1].partition(". ")
+            rows, lead = parts[:-1] + [last], tail if sep else ""
+        elif ": " in parts[0] and ". " in parts[0]:
+            first, _, tail = parts[0].partition(". ")
+            rows, lead = [first], tail
+        return c.put(key, ("\n".join(rows) + "\n" if rows else "") + lead[:chars])
     text = None
     if False:
         url = ("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1"
