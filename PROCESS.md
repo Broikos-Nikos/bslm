@@ -687,6 +687,25 @@ shower phrasings) so they enter the next round's data and benchmark. The
 connection to the real Tapo devices (the plug and the lamp groups behind
 those names) is wrapper work and waits for training downtime, as agreed.
 
+**Plan re-evaluated at the owner's nudge (2026-09-07, 13:05).** Two parts of
+the working order were mine, not the plan's, and do not hold: (1) features
+were being serialised (facts, then follow ups, then tools) for attribution,
+but every round retrains from the base checkpoint in under half an hour and
+each family has its own benchmark row, so from round seven new families
+enter together: smart home actions, follow ups with a light memory of the
+last turns and a hard new round rule in the runtime, and a dynamic toolbox
+declared in the header; (2) the held out set was regenerated every round,
+so fact scores were only comparable within about five points; the round
+six test set is frozen from now on, its facts excluded from training, and
+every round reports against it. Also adopted: the plan's own stage 6
+clause, a coded check at the delivery step (the delivered answer must
+appear in the quoted result and must not be the subject), reported as a
+second number next to the model alone; one round of epoch and learning
+rate variants once the data settles; the next fact fetch stores each
+subject's language count so a "well known subjects" score can sit beside
+the full one. Unchanged: model first, wrappers in downtime, local GPU, the
+80 MB cap.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
