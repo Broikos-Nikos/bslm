@@ -777,6 +777,18 @@ The 56M at 58 MB matches the 72M on every family, which stage 7 said to
 prefer when both clear the bar; the 72M stays the default until facts
 clear it, then the 56M is measured again for the phone.
 
+**Rounds nine and ten queued (2026-09-07, 17:00).** Round nine (generating,
+then two epochs): type aware page choice when a title names several works
+("Silence (novel)" for an author question, and the judgement names the
+other work), plus the well known subjects score. Round ten (queued behind
+it, one Wikipedia client and one GPU job at a time): the opened page shows
+one infobox row per line ("Music by: Hans Zimmer" on its own line) with a
+shorter lead, so the answer row is not a name lost in a sentence, and a
+third of the follow up second turns are unrelated requests, after the PC
+test where a song request right after light commands was read as a light
+follow up. Both run from the round script with per round data directories
+and the trajectory cache, generation overlapping training.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

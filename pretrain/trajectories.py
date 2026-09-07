@@ -47,7 +47,7 @@ from .agent_tools import Env, WEEKDAYS, fmt_results, fmt_videos, forecast, rain_
 ROOT = Path(__file__).resolve().parent.parent
 AGENT = ROOT / "corpus" / "agent"
 EOT = "<|endoftext|>"
-GEN_VERSION = "r9"      # bump whenever the text of a trajectory changes; the trajectory cache is keyed by it
+GEN_VERSION = "r10"      # bump whenever the text of a trajectory changes; the trajectory cache is keyed by it
 MODEL_LINES = ("Plan:", "Act:", "Judge:", "Ask:", "Deliver:")
 
 # ---------------------------------------------------------------- phrasing

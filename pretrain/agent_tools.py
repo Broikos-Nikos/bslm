@@ -230,11 +230,11 @@ def infobox_rows(page, limit=14):
     return rows
 
 
-def wiki_extract(title, chars=1200):
+def wiki_extract(title, chars=900):
     """The article as the model reads it: infobox rows, then the lead
     paragraphs, from the mobile page. Cached."""
     key = title.strip().lower()
-    c = cache("page2")
+    c = cache("page3")      # page3: one infobox row per line, a shorter lead
     hit = c.get(key)
     if hit is not None:
         return hit
@@ -262,7 +262,9 @@ def wiki_extract(title, chars=1200):
             paras = [_clean(p) for p in re.findall(r"<p[^>]*>(.*?)</p>", body, re.S)]
             lead = re.sub(r"\[\d+\]", "", " ".join(p for p in paras if p))
             lead = re.sub(r"\s+", " ", lead).strip()[:chars]
-            text = ("; ".join(rows) + ". " if rows else "") + lead
+            # one row per line: the model reads "Music by: Hans Zimmer" as its own
+            # line instead of a name lost in a long sentence
+            text = ("\n".join(rows) + "\n" if rows else "") + lead
         except Exception as e:      # noqa: BLE001
             text = f"could not open the page: {e}"
     if text.startswith("could not open"):
