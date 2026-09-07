@@ -107,16 +107,28 @@ WHAT = {  # what is missing, for the judgement
     "atomic_number": "the atomic number", "sport": "the sport",
 }
 NOUN = dict(WHAT, head_gov="the head of government", head_state="the head of state")   # "so <noun> is <answer>"
-SAY = {   # the delivered sentence; {s} subject, {a} answer, {src} page title
-    "capital": "The capital of {s} is {a}", "capital_region": "The capital of {s} is {a}",
+SAY = {   # the delivered sentence, answer first; {s} subject, {a} answer
+    "capital": "{a} is the capital of {s}", "capital_region": "{a} is the capital of {s}",
     "head_gov": "{a} is the head of government of {s}", "head_state": "{a} is the head of state of {s}",
-    "currency": "{s} uses the {a}", "continent": "{s} is in {a}", "born_year": "{s} was born in {a}",
-    "died_year": "{s} died in {a}", "birthplace": "{s} was born in {a}", "director": "{s} was directed by {a}",
-    "composer": "The music for {s} was composed by {a}", "release_year": "{s} was released in {a}",
-    "author": "{s} was written by {a}", "height": "{s} is {a} metres high", "founded": "{s} was founded in {a}",
-    "developer": "{s} was developed by {a}", "country_of_city": "{s} is in {a}",
-    "element_symbol": "The symbol of {s} is {a}", "atomic_number": "The atomic number of {s} is {a}",
-    "sport": "{s} plays {a}",
+    "currency": "The {a} is the currency of {s}", "continent": "{a} is the continent of {s}",
+    "born_year": "{a} is the birth year of {s}", "died_year": "{a} is the year {s} died",
+    "birthplace": "{a} is the birthplace of {s}", "director": "{a} directed {s}",
+    "composer": "{a} composed the music for {s}", "release_year": "{a} is the release year of {s}",
+    "author": "{a} wrote {s}", "height": "{a} metres is the height of {s}",
+    "founded": "{a} is the founding year of {s}", "developer": "{a} developed {s}",
+    "country_of_city": "{a} is the country of {s}", "element_symbol": "{a} is the symbol of {s}",
+    "atomic_number": "{a} is the atomic number of {s}", "sport": "{a} is the sport of {s}",
+}
+CUE = {   # the words that announce the answer in a sentence; the quote starts there when they are close
+    "capital": r"capital(?: city)?(?: is| of| was)?", "capital_region": r"capital(?: city)?(?: is| of| was)?",
+    "head_gov": r"prime minister|head of government|chancellor|premier", "head_state": r"president|king|queen|monarch|head of state",
+    "currency": r"currency|money", "continent": r"continent|located in", "born_year": r"born|birth",
+    "died_year": r"died|death", "birthplace": r"born in|born at|native of|birthplace", "director": r"directed by|director",
+    "composer": r"music by|composed by|score by|composer|soundtrack by", "release_year": r"released|premiered|release",
+    "author": r"written by|author|novel by|book by|by", "height": r"elevation|height|metres|meters|m\b",
+    "founded": r"founded|established|incorporated", "developer": r"developed by|developer|created by|made by",
+    "country_of_city": r"city in|town in|located in|in the|in", "element_symbol": r"symbol", "atomic_number": r"atomic number",
+    "sport": r"player|footballer|cyclist|swimmer|boxer|golfer|cricketer|racing driver|athlete|plays|competed",
 }
 PLAN_FACT = ["A fact to check, not to guess: search for it.",
              "I should not guess this. Search, then answer from the result.",
@@ -149,13 +161,25 @@ def found_in(answer, text):
     return False
 
 
-def fragment(answer, text, width=60):
-    """A short quote around the answer, for the judgement line."""
+def fragment(answer, text, width=60, rel=None):
+    """A short quote around the answer, for the judgement line. When the
+    relation's cue words ("directed by", "capital") sit shortly before the
+    answer, the quote starts at the cue, so the model learns to read the
+    words that announce the answer instead of any name nearby."""
     t = re.sub(r"\s+", " ", text)
     i = norm(t).find(norm(answer).split()[-1]) if norm(answer) else -1
     if i < 0:
         return t[:width]
     lo = max(0, i - width // 2)
+    if rel in CUE:
+        before = t[max(0, i - 45):i]
+        m = None
+        for m in re.finditer(CUE[rel], before, re.I):
+            pass
+        if m:
+            lo = max(0, i - 45) + m.start()
+            hi = i + len(answer) + 12
+            return (t[lo:hi].rsplit(" ", 1)[0] if hi < len(t) else t[lo:]).strip(" ,;:")
     out = t[lo:lo + width]
     if lo > 0:
         out = out.split(" ", 1)[-1]          # start on a word boundary
@@ -270,7 +294,7 @@ def fact_traj(fact, rng, now, home, soul, shape):
                 skip = "Result 1 is the film, not the book. "
             elif hit > 0 and rel in ("director", "composer") and re.search(r"novel|book|\(album\)|\(song\)", items[0]["title"].lower()):
                 skip = "Result 1 is not the film. "
-            t.model("Judge", f'{skip}Result {hit + 1} states it: "{fragment(a, items[hit]["snippet"])}", so {NOUN[rel]} is {a}. That answers it.')
+            t.model("Judge", f'{skip}Result {hit + 1} states it: "{fragment(a, items[hit]["snippet"], rel=rel)}", so {NOUN[rel]} is {a}. That answers it.')
             t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items[hit]['title']}).")
             drop_state(st)
             return t, truth
@@ -284,7 +308,7 @@ def fact_traj(fact, rng, now, home, soul, shape):
                 t.model("Judge", f"The results mention {s} but none states {WHAT[rel]}. Open result {page_i + 1}, the page itself.")
             page = t.act(env, f"open({page_i + 1})")
             if found_in(a, page):
-                t.model("Judge", f'The page says: "{fragment(a, page)}", so {NOUN[rel]} is {a}. That answers it.')
+                t.model("Judge", f'The page says: "{fragment(a, page, rel=rel)}", so {NOUN[rel]} is {a}. That answers it.')
                 t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items[page_i]['title']}).")
                 drop_state(st)
                 return t, truth
@@ -297,7 +321,7 @@ def fact_traj(fact, rng, now, home, soul, shape):
             items2 = env.last_results
             hit2 = next((i for i, x in enumerate(items2) if not isinstance(x, dict) or "error" in x or found_in(a, x["snippet"])), None) if items2 and "error" not in items2[0] else None
             if hit2 is not None:
-                t.model("Judge", f'Result {hit2 + 1} states it: "{fragment(a, items2[hit2]["snippet"])}", so {NOUN[rel]} is {a}. That answers it.')
+                t.model("Judge", f'Result {hit2 + 1} states it: "{fragment(a, items2[hit2]["snippet"], rel=rel)}", so {NOUN[rel]} is {a}. That answers it.')
                 t.model("Deliver", SAY[rel].format(s=s, a=a) + f" (Wikipedia: {items2[hit2]['title']}).")
                 drop_state(st)
                 return t, truth
@@ -327,10 +351,12 @@ SONG_ASK = ["play {t}", "play {t} by {a}", "put on {t}", "i want to hear {t} by 
 
 
 def pick_video(items, title, artist):
-    nt, na = norm(title), norm(artist)
+    """The first result whose title carries the song title and, when an
+    artist is known, the artist too; artist None means the user named none."""
+    nt, na = norm(title), (norm(artist) if artist else "")
     for i, v in enumerate(items):
         vt = norm(v["title"]) + " " + norm(v.get("channel", ""))
-        if nt and nt in vt and (na in vt or na.split()[0] in vt if na else True):
+        if nt and nt in vt and (not na or na in vt or na.split()[0] in vt):
             return i
     return None
 
@@ -360,28 +386,38 @@ def song_traj(song, rng, now, home, soul, library, in_library):
         truth["expected"] = "library"
         drop_state(st)
         return t, truth
-    t.model("Judge", "Not in the library. Search YouTube with the title and the artist.")
-    r = t.act(env, f'youtube("{title} {artist}")')
+    known = norm(artist) in norm(user)          # did the user name the artist at all
+    if known:
+        t.model("Judge", "Not in the library. Search YouTube with the title and the artist.")
+        r = t.act(env, f'youtube("{title} {artist}")')
+    else:
+        t.model("Judge", "Not in the library. No artist was given, so search YouTube with the title alone.")
+        r = t.act(env, f'youtube("{title}")')
+    artist_q = artist if known else None
     vids = env.last_videos
     if not vids or "error" in vids[0]:
         drop_state(st)
         return None, None
-    k = pick_video(vids, title, artist)
+    k = pick_video(vids, title, artist_q)
     if k is None:
-        t.model("Judge", "None of these is the song itself: the titles do not match. Search once more with the artist first.")
-        r = t.act(env, f'youtube("{artist} {title} official")')
+        if known:
+            t.model("Judge", "None of these is the song itself: the titles do not match. Search once more with the artist first.")
+            r = t.act(env, f'youtube("{artist} {title} official")')
+        else:
+            t.model("Judge", "None of these is the song itself: the titles do not match. Search once more with the word song added.")
+            r = t.act(env, f'youtube("{title} song")')
         vids = env.last_videos
         if not vids or "error" in vids[0]:
             drop_state(st)
             return None, None
-        k = pick_video(vids, title, artist)
+        k = pick_video(vids, title, artist_q)
         if k is None:
             t.model("Judge", "Still no result whose title matches the song. Do not play a random video; say so.")
             t.model("Deliver", f"I could not find {title} by {artist} on YouTube; the closest result is \"{vids[0]['title']}\". Want that one?")
             truth["expected"] = "none"
             drop_state(st)
             return t, truth
-    t.model("Judge", f'Result {k + 1} matches the title and the artist: "{vids[k]["title"]}".')
+    t.model("Judge", f'Result {k + 1} matches the title{" and the artist" if known else ""}: "{vids[k]["title"]}".')
     t.act(env, f"play({k + 1})")
     t.model("Deliver", f"Playing \"{vids[k]['title']}\" on YouTube.")
     truth["expected"] = "youtube"
@@ -673,6 +709,10 @@ def build(args):
     rng = random.Random(args.seed)
     AGENT.mkdir(parents=True, exist_ok=True)
     facts = [json.loads(l) for l in (AGENT / "facts.jsonl").open(encoding="utf-8")]
+    hist = re.compile(r"dynasty|kingdom|empire|governorate|occupation|republic of|league|sultanate|bishopric|"
+                      r"state of|duchy|khanate|emirate|principality|province of|colony|mandate|protectorate|"
+                      r"confederation|caliphate|viceroyalty|commonwealth of|\b\d{3,4}\b", re.I)
+    facts = [f for f in facts if f["rel"] not in ("capital", "currency", "capital_region") or not hist.search(f["subject"])]
     songs = [json.loads(l) for l in (AGENT / "songs.jsonl").open(encoding="utf-8")]
     places = [json.loads(l) for l in (AGENT / "places.jsonl").open(encoding="utf-8")]
     rng.shuffle(facts)

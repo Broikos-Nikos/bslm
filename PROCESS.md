@@ -638,6 +638,23 @@ sentence), adds a judgement line for the wrong kind of first result (the
 film for a book and the reverse), drops to two phrasings per fact to
 repeat names less, and tests 100 tasks per family to narrow the noise.
 
+**Round four (2026-09-07, 08:45).** Actions copy the user's words: 29,160
+trajectories (18,219 facts, two phrasings), 26,654 train, 13.3M tokens, 369
+steps, val loss 0.051. Benchmark on 100 tasks per family: **89.8% overall**,
+facts 69.0%, songs 89.4%, weather 88.0%, compound 98.8%, local and small
+talk 100%; recovery 77.8%, false delivery 6.4%, wasted 0.0%, honest give
+up 25% of 8. Copy errors are mostly gone from the misses; what is left is
+reading: the model names the subject instead of the answer ("Le Grand
+Meaulnes was written by Le Grand Meaulnes"), or the wrong role from the
+same sentence (the screenwriter for the author, the director for the
+composer), and for songs it invents an artist the user never named ("play
+titanium" became "titanium rammstein"). Round five: the delivered sentence
+puts the answer first, copied from the judgement line just above; the
+quoted fragment starts at the words that announce the answer ("directed
+by", "capital") when they sit right before it; YouTube searches use the
+title alone when no artist was given; historical states leave the capital
+and currency questions, since their pages rarely state either.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
