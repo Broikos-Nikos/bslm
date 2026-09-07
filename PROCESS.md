@@ -760,6 +760,23 @@ equal three (91.4% overall, facts 71%), so training drops to two epochs;
 the well known subjects score is 74% on 31 facts, no easier than the full
 set, so obscurity is not what limits facts.
 
+**Round eight, the size and tokens curve (2026-09-07, 16:40).** Three fine
+tunes on round seven's data, judged on the frozen benchmark: 72M pretrained
+on 10B tokens, two epochs: facts 70% (71% with the check), overall 91.4%;
+72M on 2.4B tokens: facts 67%, overall 91.4%; 56M on 1.2B tokens: facts 69%
+(70% with the check), overall 91.1%, and 81% on the well known subjects
+(25 of 31). Everything else moves inside a point or two: follow ups 94 to
+96%, songs 95 to 97%, weather 88 to 89%, recovery 90 to 96%. Reading: from
+56M at 1.2B tokens to 72M at 10B tokens, eight times the pretraining
+compute, the fact score does not move outside the noise band, so neither
+size nor pretraining depth is what limits facts at this scale; the limit
+is the reading procedure and the data. That argues against buying the
+150M pretraining now (a 7 day local run or about 28 USD rented) and for
+keeping the levers on the data side. Two epochs replace three from here.
+The 56M at 58 MB matches the 72M on every family, which stage 7 said to
+prefer when both clear the bar; the 72M stays the default until facts
+clear it, then the 56M is measured again for the phone.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

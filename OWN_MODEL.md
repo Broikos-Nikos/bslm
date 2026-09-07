@@ -232,9 +232,16 @@ fine tune, a GGUF export and the agent benchmark:
 | 4 | actions copy the user's words | 89.8% | 69.0% | 78% | 6.4% |
 | 5 | answer first, cue anchored quotes | 91.3% | 72.0% | 89% | 5.6% |
 | 6 | infobox reading, aliases, hourly forecast | 92.3% | 76.0% | 92% | 4.1% |
+| 7 | follow ups, toolbox, weather, smart home, delivery check (frozen set from here) | 91.8% | 71.0% | 95% | 2.8% |
+| 8a | round 7 data, two epochs | 91.4% | 71.0% | 96% | 3.2% |
+| 8b | round 7 data, 72M pretrained on 2.4B tokens | 91.4% | 67.0% | 90% | 3.5% |
+| 8c | round 7 data, 56M pretrained on 1.2B tokens | 91.1% | 70.0% | 93% | 3.7% |
 
 Rounds one to five each had their own held out set (a five point noise
-band on facts); the round six set is frozen from here on.
+band on facts); the round six set is frozen from round seven on. Round
+eight shows the size and tokens curve is flat on facts (56M at 1.2B tokens
+to 72M at 10B tokens, inside the noise band), so the levers are the data
+and the reading procedure, not a bigger model yet.
 
 **The procedure for one round.** Decide the change from the last round's
 misses, write the dated PROCESS.md entry, then:
