@@ -810,6 +810,20 @@ inception" searched Wikipedia for real and answered Christopher Nolan,
 lights half" set the level. The same APK goes on the Poco F3 the day it is
 on USB; speed there is the number still missing.
 
+**Scope and finish estimate (2026-09-07, 20:45).** The owner drops the
+Android install from the plan: the phone shell stays at its emulator
+milestone. Finish criteria are the plan's bars: every family at 80% or
+better (facts is the one open, at 71%), the four loop metrics passing
+(honest give up at 95% is the other open one, at 89%), then one round of
+training variants and the 56M re measure. At the current cadence (a round
+every 40 to 90 minutes, generation overlapping training) that is two to
+three more days of unattended rounds, model bars around 2026-09-10, whole
+project around 2026-09-11 to 12 with the wrapper leftovers (Tapo link
+once the login is given, the tools file entry for the tray app, PC
+assistant polish) done in downtime. If facts plateau under 80%, the quoted
+answer the owner proposed ("Wikipedia said: ...") becomes the accepted
+form and the bar is judged on the quote, which the benchmark now reports.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
