@@ -848,6 +848,20 @@ so a partial selection never drops a relation. Round ten, which had
 started with the same skew, is restarted on the fixed selection with the
 same page format change; eleven and twelve follow it again.
 
+**Round ten, the fair test on the repaired mix (2026-09-07, 22:52).** Page
+rows one per line, stratified fact selection (every relation present),
+two epochs: 39k trajectories, val loss 0.045; benchmark **91.4% overall**,
+facts 72.0% (back to the round six and seven level, confirming round nine
+was the data skew and the disambiguation change is neutral to slightly
+positive: composers 4/10, directors 3/6), local 100%, follow ups 92%,
+songs 97%, weather 88%, compound 96%. Loop: recovery 94.6%, false
+delivery 4.2%, wasted 0.1%, honest give up 82% of 17. The quoted answer
+carried the fact 58% of the time, so a plain "Wikipedia said this" alone
+would score well below the model's 72%: the model's reading adds real
+value over the raw quote. Facts and the two loop bars (false delivery
+under 3, honest give up 95) are the three still open. Eleven (more honest
+give ups) and twelve (learning rate sweep) are chained on the card.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
