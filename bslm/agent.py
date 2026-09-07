@@ -52,6 +52,7 @@ ROUND_GAP = 600            # seconds of silence that end a round
 NEW_ROUND = re.compile(r"^(new (question|topic|round)|start over|forget (that|it|all)|never ?mind)\W*$", re.I)
 MEMORY_TURNS = 4
 ANSWER_CUT = re.compile(r"^(.+?)(?: is the | wrote | directed | composed | developed | is a | does | metres is | is in | plays )")
+QUOTE = re.compile(r'Judge: [^\n]*?"([^"\n]{3,})"')
 
 
 def norm(s):
@@ -208,11 +209,15 @@ class Agent:
             if cand and (norm(cand) not in norm(last) or norm(cand) in norm(text)):
                 unverified = True
                 answer = "I could not confirm that from the page. What the model read: " + raw
+        # the last thing the model quoted from a result: "Wikipedia said this",
+        # shown with the answer so a wrong extraction is visible at a glance
+        quotes = QUOTE.findall(self.transcript)
+        quote = quotes[-1] if quotes and trace else ""
         self.memory.append((text, trace[-1][0] if trace else None, answer))
         self.memory = self.memory[-MEMORY_TURNS:]
         self.last_time = now
         return {"kind": "deliver", "answer": answer, "raw_answer": raw, "unverified": unverified, "trace": trace,
-                "wasted": wasted, "transcript": self.transcript}
+                "quote": quote, "wasted": wasted, "transcript": self.transcript}
 
     def reply(self, text, max_acts=6):
         """The user's answer to an Ask; continues the same episode."""

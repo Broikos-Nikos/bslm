@@ -70,8 +70,11 @@ class Hybrid:
         r = self.agent.run(text)
         self.pending_ask = r["kind"] == "ask"
         info = {"trace": r["trace"], "kind": r["kind"], "router_guess": (parsed["raw_intent"], parsed["confidence"]),
-                "unverified": r.get("unverified", False)}
-        return r["answer"], "loop", info
+                "unverified": r.get("unverified", False), "quote": r.get("quote", "")}
+        answer = r["answer"]
+        if info["quote"] and any(a.startswith(("search(", "open(")) for a, _ in r["trace"]):
+            answer += f'  [Wikipedia said: "{info["quote"]}"]'
+        return answer, "loop", info
 
     def _looks_like_followup(self, text):
         """Short turns that lean on the last one go to the loop model, which
