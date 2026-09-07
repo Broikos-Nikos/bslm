@@ -116,15 +116,36 @@ class RateLimited(RuntimeError):
     pass
 
 
+import itertools as _itertools
+_PROXY = __import__("os").environ.get("BSLM_PI_PROXY", "").strip()
+# both openers carry the certifi context; the Windows store rejects the
+# Wikimedia chain, and that must hold whether the request goes direct or
+# through the Pi proxy (HTTPS over the proxy is a CONNECT tunnel)
+_direct_opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=_CTX))
+_proxy_opener = (urllib.request.build_opener(urllib.request.HTTPSHandler(context=_CTX),
+                                             urllib.request.ProxyHandler({"http": _PROXY, "https": _PROXY}))
+                 if _PROXY else None)
+_opener_turn = _itertools.count()
+
+
+def _opener(url):
+    # split only Wikipedia load; DBpedia, YouTube and Open-Meteo stay direct
+    if _proxy_opener is not None and "wikipedia.org" in url and next(_opener_turn) % 2:
+        return _proxy_opener
+    return _direct_opener
+
+
 def _get(url, headers=None, timeout=20, tries=3):
     h = {"User-Agent": UA, "Accept-Language": "en"}
     h.update(headers or {})
     err = None
     for i in range(tries):
         try:
-            _polite(url)
+            op = _opener(url)
+            if op is _direct_opener:      # the proxy has its own budget; only pace direct Wikipedia calls
+                _polite(url)
             req = urllib.request.Request(url, headers=h)
-            return urllib.request.urlopen(req, timeout=timeout, context=_CTX).read().decode("utf-8", "replace")
+            return op.open(req, timeout=timeout).read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:
             if e.code == 429:
                 # back off hard, the limit is per client and shared by every thread
