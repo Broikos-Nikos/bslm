@@ -2,7 +2,8 @@
 
     python assistant.py                     interactive
     python assistant.py "set a timer for 5 minutes"
-    python assistant.py --debug             show intent, confidence and slots
+    python assistant.py --debug             show the layer, intent or actions
+    python assistant.py --router            router and skills only, no loop model
 """
 import sys
 
@@ -23,8 +24,24 @@ def main():
 
     parser = Parser()
     bot = Assistant()
+    hybrid = None
+    if "--router" not in args:
+        try:
+            from bslm.hybrid import Hybrid, loop_model
+            if loop_model():
+                hybrid = Hybrid()
+        except Exception as e:      # noqa: BLE001
+            print("loop model not started:", e)
+    args = [a for a in args if a != "--router"]
 
     def handle(text):
+        if hybrid:
+            out, layer, info = hybrid.reply(text)
+            if debug:
+                print(f"  layer {layer}  " + (f"intent {info['intent']} ({info['confidence']:.3f})" if layer == "reflex"
+                                              else "acts " + "; ".join(a for a, _ in info.get("trace", []))))
+            print(out)
+            return
         p = parser.parse(text)
         if debug:
             slots = ", ".join(f"{k}={v!r}" for k, v in p["slots"].items()) or "none"

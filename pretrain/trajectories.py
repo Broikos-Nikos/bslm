@@ -47,7 +47,7 @@ from .agent_tools import Env, WEEKDAYS, fmt_results, fmt_videos, forecast, rain_
 ROOT = Path(__file__).resolve().parent.parent
 AGENT = ROOT / "corpus" / "agent"
 EOT = "<|endoftext|>"
-GEN_VERSION = "r8"      # bump whenever the text of a trajectory changes; the trajectory cache is keyed by it
+GEN_VERSION = "r9"      # bump whenever the text of a trajectory changes; the trajectory cache is keyed by it
 MODEL_LINES = ("Plan:", "Act:", "Judge:", "Ask:", "Deliver:")
 
 # ---------------------------------------------------------------- phrasing
@@ -131,6 +131,34 @@ CUE = {   # the words that announce the answer in a sentence; the quote starts t
     "country_of_city": r"city in|town in|located in|in the|in", "element_symbol": r"symbol", "atomic_number": r"atomic number",
     "sport": r"player|footballer|cyclist|swimmer|boxer|golfer|cricketer|racing driver|athlete|plays|competed",
 }
+KIND = {   # the kind of page each relation asks about, for titles that name several works
+    "author": ("novel", "book"), "director": ("film",), "composer": ("film",), "release_year": ("film",),
+    "developer": ("video game", "software"), "sport": (), "born_year": (), "died_year": (), "birthplace": (),
+}
+
+
+def page_for(items, s, rel):
+    """The result that is the subject's own page: prefer a title whose
+    qualifier matches the kind asked about ("Silence (novel)" for an author
+    question), then the bare title, then any title containing it."""
+    kinds = KIND.get(rel, ())
+    ns = norm(s)
+    ranked = []
+    for i, x in enumerate(items):
+        nt = norm(x["title"])
+        if ns == nt:
+            ranked.append((1, i))
+        elif ns in nt or nt in ns:
+            q = x["title"].lower()
+            ranked.append((0 if any(k in q for k in kinds) else 2, i))
+    if not ranked:
+        return None, None
+    ranked.sort()
+    best = ranked[0][1]
+    other = [i for _, i in ranked if i != best and norm(s) in norm(items[i]["title"])]
+    return best, (other[0] if other and any(k in items[other[0]]["title"].lower() for k in ("film", "novel", "book", "album", "song", "game", "series")) else None)
+
+
 PLAN_FACT = ["A fact to check, not to guess: search for it.",
              "I should not guess this. Search, then answer from the result.",
              "Fact question: search the name with the key word and read the results.",
@@ -348,13 +376,15 @@ def fact_traj(fact, rng, now, home, soul, shape):
             drop_state(st)
             return t, truth
         # not in the snippets (or we want the page): is the subject's page here?
-        page_i = next((i for i, x in enumerate(items) if norm(x["title"]) == norm(s)
-                       or norm(s) in norm(x["title"]) or norm(x["title"]) in norm(s)), None)
+        page_i, other_i = page_for(items, s, rel)
         if page_i is not None:
+            which = ""
+            if other_i is not None:
+                which = f" Result {other_i + 1} is {items[other_i]['title']}, a different work with the same name;"
             if hit is not None:
-                t.model("Judge", f"Result {page_i + 1} is the page for {s}; open it to be sure.")
+                t.model("Judge", f"Result {page_i + 1} is the page for {s};{which} open it to be sure.")
             else:
-                t.model("Judge", f"The results mention {s} but none states {WHAT[rel]}. Open result {page_i + 1}, the page itself.")
+                t.model("Judge", f"The results mention {s} but none states {WHAT[rel]}.{which} Open result {page_i + 1}, the page itself.")
             page = t.act(env, f"open({page_i + 1})")
             a_found = where(page)
             if a_found:

@@ -74,6 +74,16 @@ class Brain:
         self.memory = deque(load(MEM, []), maxlen=MAX_MESSAGES)
         self.parser = Parser()
         self.bot = Assistant(speak=speak)
+        self.hybrid = None
+        try:
+            # the loop model (bslm/agent.py) behind the router, when its GGUF exists:
+            # follow ups, questions to look up, tools, weather, songs
+            from bslm.hybrid import Hybrid, loop_model
+            if loop_model():
+                self.hybrid = Hybrid(speak=speak)
+                self.bot = self.hybrid.bot
+        except Exception as e:      # noqa: BLE001
+            print("loop model not started:", e)
         self.bot.last = next((m["text"] for m in reversed(self.memory)
                               if m["role"] == "assistant"), "")
         save(SOUL, self.soul)
@@ -118,7 +128,11 @@ class Brain:
     # ---- one exchange -------------------------------------------------------
     def reply(self, text):
         out = self.learn(text)
-        if out is None:
+        if out is None and self.hybrid:
+            out, layer, info = self.hybrid.reply(text)
+            if layer == "reflex" and info.get("intent") == "smalltalk.greet" and self.soul["user"]["name"]:
+                out = out.rstrip(".") + f", {self.soul['user']['name']}."
+        elif out is None:
             parsed = self.apply_soul(self.parser.parse(text))
             out = self.bot.run(parsed)
             name = self.soul["user"]["name"]
@@ -136,6 +150,8 @@ class Brain:
     def forget(self):
         self.memory.clear()
         save(MEM, [])
+        if self.hybrid and self.hybrid.agent:
+            self.hybrid.agent.new_round()
 
 
 def run_window():
