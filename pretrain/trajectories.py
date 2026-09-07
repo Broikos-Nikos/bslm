@@ -47,6 +47,7 @@ from .agent_tools import Env, WEEKDAYS, fmt_results, fmt_videos, forecast, rain_
 ROOT = Path(__file__).resolve().parent.parent
 AGENT = ROOT / "corpus" / "agent"
 EOT = "<|endoftext|>"
+GEN_VERSION = "r8"      # bump whenever the text of a trajectory changes; the trajectory cache is keyed by it
 MODEL_LINES = ("Plan:", "Act:", "Judge:", "Ask:", "Deliver:")
 
 # ---------------------------------------------------------------- phrasing
@@ -1008,6 +1009,8 @@ def build(args):
     out = []       # (text, spans, truth, split)
     lock = threading.Lock()
     stats = {}
+    from .agent_tools import cache as _cache
+    tcache = _cache(f"traj_{GEN_VERSION}")     # finished fact trajectories, so a rerun only builds what changed
 
     def keep(t, truth, split):
         if t is None:
@@ -1035,23 +1038,41 @@ def build(args):
         now, home, soul, _ = session(r)
         u = r.random()
         shape = "direct" if u < 0.5 else ("bad_first" if u < 0.85 else "open")
+        split = "test" if i < n_test else ("val" if i < n_test + n_facts // 50 else "train")
+        ckey = f"{f['rel']}|{f['subject']}|{ph}|{shape}|{args.seed}"
+        hit = tcache.get(ckey)
+        if hit is not None:
+            text, spans, truth = hit
+            if truth.get("answer") is None and r.random() > args.giveup_keep:
+                stats["giveup_dropped"] = stats.get("giveup_dropped", 0) + 1
+                return
+            if len(text) > args.max_chars:
+                stats["too_long"] = stats.get("too_long", 0) + 1
+                return
+            with lock:
+                out.append((text, [tuple(x) for x in spans], truth, split))
+                stats["fact"] = stats.get("fact", 0) + 1
+                stats["cached"] = stats.get("cached", 0) + 1
+            return
         try:
             t, truth = fact_traj(f, r, now, home, soul, shape)
         except Exception as e:      # noqa: BLE001
             stats["fact_error"] = stats.get("fact_error", 0) + 1
             return
+        if t is not None:
+            tcache.put(ckey, [t.text(), t.spans(), truth])
         if truth and truth.get("answer") is None and r.random() > args.giveup_keep:
             # facts our own procedure cannot find are common with obscure
             # subjects; keep only enough of them for the honest give up lesson
             stats["giveup_dropped"] = stats.get("giveup_dropped", 0) + 1
             return
-        keep(t, truth, "test" if i < n_test else ("val" if i < n_test + n_facts // 50 else "train"))
+        keep(t, truth, split)
 
     t0 = time.time()
     jobs = [(i, ph) for i in range(n_facts) for ph in range(args.phrasings)]
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         for k, _ in enumerate(ex.map(do_fact, jobs)):
-            if k % 2000 == 0:
+            if k % 8000 == 0:
                 print(f"facts {k}/{len(jobs)}  {time.time() - t0:.0f}s  {stats}", flush=True)
 
     # songs, sequential and throttled (YouTube)
@@ -1067,8 +1088,8 @@ def build(args):
             stats["song_error"] = stats.get("song_error", 0) + 1
             continue
         keep(t, truth, "test" if i < n_test_s else ("val" if i < n_test_s + n_songs // 50 else "train"))
-        if i % 500 == 0:
-            print(f"songs {i}/{n_songs}  {time.time() - t0:.0f}s", flush=True)
+        if i == 0:
+            print(f"songs {n_songs}  {time.time() - t0:.0f}s", flush=True)
         time.sleep(args.yt_delay)
 
     # local, compound, agenda and umbrella, other
@@ -1092,8 +1113,8 @@ def build(args):
             stats["umbrella_error"] = stats.get("umbrella_error", 0) + 1
             continue
         keep(t, truth, "test" if i < args.umbrella // 20 else ("val" if i < args.umbrella // 10 else "train"))
-        if i % 200 == 0:
-            print(f"umbrella {i}/{args.umbrella}  {time.time() - t0:.0f}s", flush=True)
+        if i == 0:
+            print(f"umbrella {args.umbrella}  {time.time() - t0:.0f}s", flush=True)
     for i in range(args.followup):
         r = random.Random(args.seed * 86028121 + i)
         now, home, soul, _ = session(r)
@@ -1103,8 +1124,8 @@ def build(args):
             stats["followup_error"] = stats.get("followup_error", 0) + 1
             continue
         keep(t, truth, "test" if i < args.followup // 20 else ("val" if i < args.followup // 10 else "train"))
-        if i % 500 == 0:
-            print(f"followup {i}/{args.followup}  {time.time() - t0:.0f}s", flush=True)
+        if i == 0:
+            print(f"followup {args.followup}  {time.time() - t0:.0f}s", flush=True)
     for i in range(args.other):
         r = random.Random(args.seed * 67867967 + i)
         now, home, soul, _ = session(r)
@@ -1117,6 +1138,8 @@ def build(args):
 
 def write(out, args):
     from tokenizers import Tokenizer
+    OUTDIR = Path(args.out) if args.out else AGENT
+    OUTDIR.mkdir(parents=True, exist_ok=True)
     tok = Tokenizer.from_file(str(ROOT / "pretrain" / "tokenizer.json"))
     eot = tok.token_to_id(EOT)
     rng = random.Random(args.seed + 1)
@@ -1136,11 +1159,11 @@ def write(out, args):
             ids.append(eot)
             mask.append(1)          # the model must learn to stop after Deliver
             texts.append(text)
-        np.save(AGENT / f"{split}.npy", np.array(ids, dtype=np.uint16))
-        np.save(AGENT / f"{split}_mask.npy", np.array(mask, dtype=np.uint8))
-        (AGENT / f"{split}.txt").write_text((EOT + "\n").join(texts), encoding="utf-8", newline="\n")
+        np.save(OUTDIR / f"{split}.npy", np.array(ids, dtype=np.uint16))
+        np.save(OUTDIR / f"{split}_mask.npy", np.array(mask, dtype=np.uint8))
+        (OUTDIR / f"{split}.txt").write_text((EOT + "\n").join(texts), encoding="utf-8", newline="\n")
         print(f"{split}: {len(texts)} trajectories, {len(ids)/1e6:.2f}M tokens, {100*sum(mask)/max(1,len(mask)):.0f}% model tokens")
-    with (AGENT / "test.jsonl").open("w", encoding="utf-8") as f:
+    with (OUTDIR / "test.jsonl").open("w", encoding="utf-8") as f:
         n = 0
         for text, spans, truth, sp in out:
             if sp == "test":
@@ -1160,6 +1183,7 @@ def main():
     ap.add_argument("--umbrella", type=int, default=2000)
     ap.add_argument("--other", type=int, default=1200)
     ap.add_argument("--followup", type=int, default=3000)
+    ap.add_argument("--out", default=None, help="output directory (default corpus/agent); one per round lets generation overlap training")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--yt_delay", type=float, default=0.4)
     ap.add_argument("--max_chars", type=int, default=3600)

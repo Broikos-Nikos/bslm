@@ -96,7 +96,11 @@ def main():
     ap.add_argument("--decay_frac", type=float, default=0.5)
     ap.add_argument("--eval_every", type=int, default=50)
     ap.add_argument("--no_compile", action="store_true")
+    ap.add_argument("--data", default=None, help="directory with train.npy and friends (default corpus/agent)")
     args = ap.parse_args()
+    global AGENT
+    if args.data:
+        AGENT = Path(args.data)
 
     torch.manual_seed(1337)
     torch.backends.cuda.matmul.allow_tf32 = True

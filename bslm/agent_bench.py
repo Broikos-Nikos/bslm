@@ -158,7 +158,11 @@ def main():
     ap.add_argument("--limit", type=int, default=120, help="tasks per family")
     ap.add_argument("--model", default=None)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--data", default=None, help="directory with this round's test.jsonl (default corpus/agent)")
     args = ap.parse_args()
+    global TEST
+    if args.data:
+        TEST = Path(args.data) / "test.jsonl"
     rng = random.Random(args.seed)
     fresh = [json.loads(l) for l in TEST.open(encoding="utf-8")]
     frozen = [json.loads(l) for l in FROZEN.open(encoding="utf-8")] if FROZEN.exists() else []
