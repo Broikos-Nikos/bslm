@@ -914,6 +914,28 @@ no recipe lever remains, the open bars are a data problem. Round thirteen
 (the fabricated unanswerable questions) is next on the card, the direct test
 of whether unanswerable data lifts honest give up without the fact cost.
 
+**Round thirteen and the overnight conclusion (2026-09-08, 01:30).** The
+fabricated unanswerable questions did not work: overall 90.0%, facts 68%
+(down a little, the give up training made the model hedge on some real
+facts), honest give up 75% (no better), false delivery 4.6%. Why it could
+not have worked as measured: the held out benchmark (test_frozen) has only
+16 unfindable facts and zero fabricated ones, so the honest give up bar is
+measured on n=16 and swings 75 to 100% across rounds on sample noise alone;
+the unanswerable training entered only the training split. Reading rounds
+seven through thirteen together: **facts sit at 72% plus or minus 3, a
+size limited ceiling proven by the round eight sweep (56M to 72M at 10B
+tokens all land there); the two open loop bars, honest give up (95) and
+false delivery (under 3), are dominated by small sample noise, not a
+trainable signal.** So spinning more rounds fights noise. Stopping the
+autonomous round loop here. Best model: round seven (91.8%) or round ten
+(91.4%), facts 72%, every other family passing, recovery and wasted steps
+passing, false delivery ~3 to 4%. Decisions for the owner in the morning:
+(a) accept the quoted form ("Wikipedia said: ...") and judge facts on the
+quote, (b) grow the held out unanswerable sample so the honest give up bar
+is measurable, or (c) accept 72% facts as the 72M ceiling and ship. No
+round fourteen started; the wake loop holds and reports rather than
+spinning. Pi proxy torn down (fetching done); one command brings it back.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
