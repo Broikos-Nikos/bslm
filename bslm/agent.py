@@ -61,8 +61,10 @@ def norm(s):
 
 
 def load_tools():
+    """data/tools.json: [{"name": "qr file receiver", "desc": "receives files sent by QR code",
+    "cmd": "C:/path/to/app.exe"}, ...]; cmd is optional and never shown to the model."""
     try:
-        return [(t["name"], t.get("desc", "")) for t in json.loads(TOOLS_FILE.read_text(encoding="utf-8"))]
+        return [(t["name"], t.get("desc", ""), t.get("cmd")) for t in json.loads(TOOLS_FILE.read_text(encoding="utf-8"))]
     except (OSError, ValueError, KeyError, TypeError):
         return []
 
@@ -131,7 +133,7 @@ class Agent:
         now = self.env.now if self.env.now else datetime.now()
         h = f"Today is {now.strftime('%A %Y-%m-%d, %H:%M')}. Home: {self.home}. Facts: {self.soul}."
         if self.tools:
-            h += "\nTools: " + "; ".join(f"{n} ({d})" for n, d in self.tools)
+            h += "\nTools: " + "; ".join(f"{e[0]} ({e[1]})" for e in self.tools)
         for u, act, said in self.memory[-MEMORY_TURNS:]:
             h += f'\nEarlier: "{u}" -> {act or "no action"} -> "{said[:90]}"'
         return h + "\n"
