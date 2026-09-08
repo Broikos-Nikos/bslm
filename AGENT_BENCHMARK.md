@@ -87,3 +87,15 @@ Facts about well known subjects (an article in 40 or more languages): 25/31 = 81
 - `umbrella` `i have a meeting at 13:00 tomorrow, anything i should know` -> 'No rain expected before your meeting at 13:00 tomorrow in Athens. Go as you are.' acts ['weather("Athens", "tomorrow")']
 - `umbrella` `gym session at 17:00 today, do i need to take anything` -> 'No rain expected before your gym session at 17:00 today in Athens. Go as you are.' acts ['weather("Athens", "today")']
 - `umbrella` `im going out for a client visit tomorrow at 9:00 in Guadalajara, check the weather for me` -> 'Rain is likely around 07:00 in Guadalajara (52%), right before your client visit at 9:00. You ride a scooter, so take the car or an umbrella' acts ['weather("Guadalajara", "tomorrow")']
+
+## Honesty on a large held out sample (2026-09-08)
+
+The standing benchmark measures honest give up on only ~16 unfindable facts,
+too few to trust. A dedicated held out set of 130 fabricated subjects (things
+that cannot exist, so the only correct move is to say it could not be found)
+scores v1 at **85.4% honest give up (111/130)**. So the bar (95%) is genuinely
+not met: about one in seven times v1 invents an answer for a subject that does
+not exist ("Kubrick directed Beneath the Tarnwick"), from a real page it pulled
+that is merely near the words. This is the honest ceiling of the shipped model
+and the clearest target for any future round; it needs the fabricated
+unanswerable data in the training mix, which v1 (round seven) did not have.

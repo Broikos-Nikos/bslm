@@ -946,6 +946,15 @@ quote). Tagged v1. Decision recorded: accept 72% facts as the size ceiling,
 no 150M (breaks the 80 MB phone cap), the round loop stays stopped. Next:
 wrapper polish (PC assistant on v1, the tools registry), model work paused.
 
+**Honesty measured decisively (2026-09-08).** On 130 held out fabricated
+subjects, v1 gives up honestly 85.4% (111/130); the other ~15% it invents a
+near answer from a page that merely shares words ("Kubrick directed Beneath
+the Tarnwick"). So the honest give up bar (95%) is truly missed, not noise,
+and the fix is the fabricated unanswerable data that v1 (round seven) did not
+train on, confirming the round thirteen direction was right but needs the
+eval and the training split aligned. Recorded in AGENT_BENCHMARK.md. No model
+work resumed; this is a measurement for the record.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.
