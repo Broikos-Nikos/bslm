@@ -21,6 +21,10 @@ The project grew in two stages, both from scratch:
 
 What to look at first:
 
+- **`run_showcase.bat`** double click it: a dark, animated window that runs v1
+  live, the network pulsing as it thinks, a tool lighting up for each action,
+  the smart lights changing, chat and a running action log. A wrapper over the
+  real model (`bslm/showcase.py`), nothing faked.
 - **`DEMO.md`** a real captured session of v1 doing the tasks live, one
   honest limitation included.
 - **`AGENT_BENCHMARK.md`** the scoreboard: 91% overall on held out tasks, every
@@ -28,6 +32,7 @@ What to look at first:
   ceiling), delivered with the source quote.
 - **`PROCESS.md`** the dated decision log, every choice and why, from "what is an
   SLM" to shipping v1.
+- **`DECISIONS.md`** the forks that mattered and why, distilled from the log.
 - **`OWN_MODEL.md`** the plan and the results by round; **`RUNTIME.md`** how it
   runs on a PC and a phone; **`AUDIT.md`** the review passes.
 

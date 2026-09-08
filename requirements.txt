@@ -6,3 +6,4 @@ tokenizers        # own BPE for pretraining (pretrain/data.py); the router has i
 pyarrow           # reads the FineWeb-Edu parquet files
 gguf              # writes llama.cpp files (pretrain/export_gguf.py)
 triton-windows; sys_platform == "win32"    # torch.compile on Windows; Linux has triton with torch
+certifi           # current CA bundle for the agent tools fetches (pretrain/agent_tools.py)
