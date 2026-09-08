@@ -226,6 +226,11 @@ class Showcase(tk.Tk):
                   activebackground=EDGE, activeforeground=ACCENT, bd=0, font=("Segoe UI", 9),
                   cursor="hand2").pack(anchor="w", padx=16, pady=(4, 0))
 
+        # restart button, bottom left, so code changes show without reopening by hand
+        tk.Button(left, text="restart", command=self._restart, bg=HOT, fg="#150410",
+                  activebackground=ACCENT2, activeforeground="#150410", bd=0,
+                  font=("Segoe UI Semibold", 10), cursor="hand2").pack(side="bottom", anchor="w", padx=16, pady=14)
+
         self.status = tk.Label(left, text="waking the model...", bg=PANEL, fg=WARM, font=("Segoe UI", 9), wraplength=200, justify="left")
         self.status.pack(anchor="w", padx=16, pady=(8, 16))
 
@@ -241,8 +246,8 @@ class Showcase(tk.Tk):
         self.neurons = Neurons(self.ncanvas)
         self.ncanvas.bind("<Configure>", self._on_canvas)
 
-        cpanel = self._panel(center, height=500); cpanel.grid(row=1, column=0, sticky="ew", pady=(8, 8))
-        cpanel.pack_propagate(False)          # keep the chat exactly 500px tall
+        cpanel = self._panel(center, height=250); cpanel.grid(row=1, column=0, sticky="ew", pady=(8, 8))
+        cpanel.pack_propagate(False)          # keep the chat a compact 250px, about four exchanges
         scroll = tk.Scrollbar(cpanel, bd=0, highlightthickness=0, troughcolor=PANEL2)
         scroll.pack(side="right", fill="y")
         self.chat = tk.Text(cpanel, bg=PANEL, fg=TEXT, bd=0, highlightthickness=0, wrap="word",
@@ -327,6 +332,16 @@ class Showcase(tk.Tk):
             self.q.put(("ready",))
         except Exception as ex:      # noqa: BLE001
             self.q.put(("loaderr", str(ex)[:200]))
+
+    def _restart(self):
+        import subprocess
+        try:
+            if self.agent:
+                self.agent.stop()
+        except Exception:      # noqa: BLE001
+            pass
+        subprocess.Popen([sys.executable, "-m", "bslm.showcase"], cwd=str(ROOT))
+        self.destroy()
 
     def _save_cfg(self):
         for k, var in self.cfg_vars.items():
