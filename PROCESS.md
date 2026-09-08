@@ -936,6 +936,16 @@ is measurable, or (c) accept 72% facts as the 72M ceiling and ship. No
 round fourteen started; the wake loop holds and reports rather than
 spinning. Pi proxy torn down (fetching done); one command brings it back.
 
+**v1 shipped (2026-09-08, 08:50, the owner's call).** Round seven is v1:
+models/bslm-72m-v1-q8.gguf (78 MB, Q8_0), the runtime defaults (bslm/agent.py,
+bslm/hybrid.py, bslm/reasoner.py) point at it, AGENT_BENCHMARK.md regenerated
+against the shipped file: overall 91.2%, false delivery 2.8% (pass), honest
+give up 94.4%, recovery 95%, wasted 0.4%, every family passing except facts
+at 68 to 72% (the proven 72M ceiling; facts are delivered with the source
+quote). Tagged v1. Decision recorded: accept 72% facts as the size ceiling,
+no 150M (breaks the 80 MB phone cap), the round loop stays stopped. Next:
+wrapper polish (PC assistant on v1, the tools registry), model work paused.
+
 ## Open
 
 - 56M done: val loss 3.23, Q8 GGUF 60.1 MB, 586 tokens per second on 4 CPU threads.

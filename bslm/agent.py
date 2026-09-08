@@ -43,7 +43,7 @@ from pretrain.agent_tools import Env
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / "tools" / "llama" / "llama-server.exe"
-MODEL = Path(os.environ.get("BSLM_GGUF", ROOT / "models" / "72m-agent-q8.gguf"))
+MODEL = Path(os.environ.get("BSLM_GGUF", ROOT / "models" / "bslm-72m-v1-q8.gguf"))
 PORT = int(os.environ.get("BSLM_LLM_PORT", "8089"))
 THREADS = int(os.environ.get("BSLM_LLM_THREADS", "4"))
 TOOLS_FILE = ROOT / "data" / "tools.json"

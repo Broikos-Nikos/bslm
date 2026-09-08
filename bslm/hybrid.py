@@ -23,7 +23,7 @@ REFLEX_THRESHOLD = 0.80
 # forecast, checks the library and the YouTube results, looks facts up
 LOOP_INTENTS = {"weather.query", "music.play", "search.web", "knowledge.query", "news.query", "translate.text"}
 LEVEL_WORDS = re.compile(r"\b(half|full|soft|dim|low|high|bright|percent|mode|scene|movie|reading|cozy|relax|party|dinner|focus|sleep)\b|%", re.I)
-DEFAULT_GGUF = ROOT / "models" / "72m-agent7-q8.gguf"
+DEFAULT_GGUF = ROOT / "models" / "bslm-72m-v1-q8.gguf"
 
 
 def loop_model():

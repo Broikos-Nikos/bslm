@@ -184,6 +184,12 @@ The right production shape is this model in front, and a frontier model behind
 it for everything that falls into out of scope. The small model handles the
 80% of traffic that is a fixed command, in a millisecond, offline, for free.
 
+## v1 (2026-09-08)
+
+The shipped assistant model is `bslm-72m-v1-q8.gguf` (72M, Q8_0, 78 MB): 91.2% on
+the agent benchmark, every task family passing except open fact lookup (about 70%,
+the measured 72M ceiling), delivered with the source quote. See AGENT_BENCHMARK.md.
+
 ## The loop (stage 5 to 7)
 
 - `pretrain/agent_tools.py`: the model's hands, real tools behind one `Env.act()`.

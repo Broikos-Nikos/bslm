@@ -264,6 +264,15 @@ real forecast; facts by search, page reading and retry at 76%, with the
 loop's recovery at 92%. Round seven adds follow ups with a light memory,
 the toolbox in the header, plain weather questions and the delivery check.
 
+## v1, shipped 2026-09-08
+
+Round seven is v1 (`models/bslm-72m-v1-q8.gguf`): 91.2% overall on the frozen
+benchmark, facts about 70% (the 72M ceiling proven by the round eight size
+sweep), every other family and three of four loop metrics passing, facts
+delivered with the source quote. The size and learning rate levers are
+exhausted; further fact gains need a bigger model, which the 80 MB phone cap
+rules out. Model work is paused here by the owner's decision.
+
 ## Next steps, in order
 
 1. Round seven results: facts, follow ups and tool refusals against the
