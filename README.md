@@ -7,6 +7,8 @@ understands a fixed task list and then actually performs the tasks.
 Every parameter starts from random init and is trained on a corpus this repo
 generates itself.
 
+![BSLM running, answering a live weather question](https://github.com/Broikos-Nikos/bslm/releases/download/assets/bslm-working.png)
+
 ## Start here
 
 The project grew in two stages, both from scratch:
@@ -21,10 +23,12 @@ The project grew in two stages, both from scratch:
 
 What to look at first:
 
-- **`run_showcase.bat`** double click it: a dark, animated window that runs v1
-  live, the network pulsing as it thinks, a tool lighting up for each action,
-  the smart lights changing, chat and a running action log. A wrapper over the
-  real model (`bslm/showcase.py`), nothing faked.
+- **`run_showcase.bat`** double click it: it starts a small local server and
+  opens a dark, animated page in your browser that runs v1 live. A glowing orb
+  and a firing neuron network built in CSS and canvas, a tool lighting up for
+  each action, the smart lights changing, chat and a running action log. The
+  page is a wrapper; the Python backend (`bslm/webshow.py`) drives the real
+  model, nothing faked.
 - **`TOOLS_TEST.md`** every tool run five times through the model, a does-it-work coverage check.
 - **`DEMO.md`** a real captured session of v1 doing the tasks live, one
   honest limitation included.
