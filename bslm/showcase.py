@@ -66,15 +66,21 @@ class Neurons:
     def build(self, w, h):
         self.c.delete("all")
         self.cx, self.cy = w / 2, h / 2
-        # a soft circular gradient glowing from behind the network, no spin
-        R = max(w, h) * 0.6
-        steps = 26
+        # a glowing orb behind the network, in the gradients.design style: an
+        # off-centre highlight, a rim brighter than the middle, no rotation
+        self.orbR = min(w, h) * 0.42
+        hx, hy = self.cx - self.orbR * 0.18, self.cy - self.orbR * 0.22   # highlight offset
+        steps = 30
         for i in range(steps, 0, -1):
-            t = i / steps
-            col = self._mix(PANEL, ACCENT2, 0.22 * (1 - t))
-            r = R * t
-            self.c.create_oval(self.cx - r, self.cy - r * 0.8, self.cx + r, self.cy + r * 0.8,
-                               outline="", fill=col)
+            t = i / steps                       # 1 at the rim, 0 at the highlight
+            # body: violet core warming to a bright cyan rim
+            col = self._mix(self._mix(ACCENT2, "#1a2340", 0.35), ACCENT, max(0.0, (t - 0.55) / 0.45)) if t > 0.55 \
+                else self._mix("#141c30", ACCENT2, 0.5 * (1 - t))
+            r = self.orbR * t
+            self.c.create_oval(hx - r, hy - r, hx + r, hy + r, outline="", fill=col)
+        # the atmospheric rim, pulsed in step()
+        self.rim = self.c.create_oval(self.cx - self.orbR, self.cy - self.orbR,
+                                      self.cx + self.orbR, self.cy + self.orbR, outline=ACCENT, width=3)
         self.nodes, self.node_layer, self.edges = [], [], []
         cols = len(self.layers)
         margin_x, margin_y = 70, 40
@@ -126,6 +132,12 @@ class Neurons:
         cr = 9 + 5 * breath + 10 * self.activity
         self.c.coords(self.core, self.cx - cr, self.cy - cr, self.cx + cr, self.cy + cr)
         self.c.itemconfig(self.core, fill=self._mix(ACCENT, "#ffffff", 0.3 * self.activity))
+        # the orb rim brightens and swells a touch while thinking
+        if hasattr(self, "rim") and getattr(self, "orbR", 0):
+            rr = self.orbR * (1.0 + 0.03 * breath + 0.06 * self.activity)
+            self.c.coords(self.rim, self.cx - rr, self.cy - rr, self.cx + rr, self.cy + rr)
+            self.c.itemconfig(self.rim, outline=self._mix(ACCENT, "#ffffff", 0.15 + 0.5 * self.activity),
+                              width=2 + 2 * self.activity)
         for ni, (x, y, g) in enumerate(self.nodes):
             tw = 0.5 + 0.5 * (0.5 + 0.5 * __import__("math").sin(self.phase + g * 6))
             lvl = min(1.0, base * tw)
