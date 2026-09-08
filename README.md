@@ -7,6 +7,33 @@ understands a fixed task list and then actually performs the tasks.
 Every parameter starts from random init and is trained on a corpus this repo
 generates itself.
 
+## Start here
+
+The project grew in two stages, both from scratch:
+
+1. **The router (5M).** A hand written transformer encoder doing intent and slot
+   tagging for a fixed task list, the classic assistant core.
+2. **The loop model (72M), shipped as v1.** A Llama shaped decoder pretrained
+   from random init on public text, then taught to *use tools*: search the web
+   and read the result, check a calendar, play a song, read a forecast, control
+   lights, and retry when the first attempt fails, judging its own steps. This
+   is the "know how to check it, do not memorise it" model.
+
+What to look at first:
+
+- **`DEMO.md`** a real captured session of v1 doing the tasks live, one
+  honest limitation included.
+- **`AGENT_BENCHMARK.md`** the scoreboard: 91% overall on held out tasks, every
+  task family passing except open fact lookup (about 70%, the measured 72M
+  ceiling), delivered with the source quote.
+- **`PROCESS.md`** the dated decision log, every choice and why, from "what is an
+  SLM" to shipping v1.
+- **`OWN_MODEL.md`** the plan and the results by round; **`RUNTIME.md`** how it
+  runs on a PC and a phone; **`AUDIT.md`** the review passes.
+
+The shipped model is `models/bslm-72m-v1-q8.gguf` (78 MB, Q8_0). Weights and the
+corpus are not committed; the code that makes them is.
+
 ## What it is
 
 Two jobs in one 5M parameter transformer encoder:

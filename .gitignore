@@ -19,3 +19,4 @@ data/redact_names.txt
 phone/bin/
 data/tools.json
 Androidsdk/
+data/demo_state.json

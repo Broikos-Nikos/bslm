@@ -864,15 +864,15 @@ give ups) and twelve (learning rate sweep) are chained on the card.
 
 **Second fetch IP set up on the owner's Pi (2026-09-07, 22:55).** At the
 owner's request, a subagent installed a tiny CONNECT proxy on his
-Raspberry Pi (collector-center-pi, tailnet only, no apt install, one
-python file under /home/pishow/bslm_proxy). Verified: through it this
+spare machine on the owner's private network (a small proxy, tailnet only,
+no install, a single python file). Verified: through it this
 machine's traffic exits from the Pi's WAN IP, not its own, and a Wikipedia
 query returns. `pretrain/agent_tools.py` now honours BSLM_PI_PROXY: when
 set, half the Wikipedia requests go through the Pi and half direct, both
 with the certifi context, so a large fresh fact fetch would run at about
 twice the safe rate. Off by default, so the cached rounds are unaffected;
 it exists only for a future large fetch. Temporary: teardown is one
-command (bash /home/pishow/bslm_proxy/stop.sh over ssh, or the ready
+command (the proxy's stop script over ssh, or the ready
 helper in the session scratchpad), to be run when the fetch work is done.
 The Pi credentials live only in the session scratchpad, never in the repo.
 
