@@ -21,3 +21,4 @@ data/tools.json
 Androidsdk/
 data/demo_state.json
 data/*state*.json
+data/showcase_config.json

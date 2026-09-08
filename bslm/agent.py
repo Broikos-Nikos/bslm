@@ -77,6 +77,7 @@ class Agent:
         self.env = env or Env(ROOT / "data" / "state.json", tools=self.tools)
         self.env.tools = list(self.tools)
         self.home, self.soul = home, soul
+        self.env.home = home
         self.model = Path(model) if model else MODEL
         self.port = port
         self.check = check

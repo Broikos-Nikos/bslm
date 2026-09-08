@@ -25,6 +25,7 @@ What to look at first:
   live, the network pulsing as it thinks, a tool lighting up for each action,
   the smart lights changing, chat and a running action log. A wrapper over the
   real model (`bslm/showcase.py`), nothing faked.
+- **`TOOLS_TEST.md`** every tool run five times through the model, a does-it-work coverage check.
 - **`DEMO.md`** a real captured session of v1 doing the tasks live, one
   honest limitation included.
 - **`AGENT_BENCHMARK.md`** the scoreboard: 91% overall on held out tasks, every

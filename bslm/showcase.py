@@ -18,6 +18,8 @@ import time
 import tkinter as tk
 from pathlib import Path
 
+from . import config
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------- palette
@@ -145,6 +147,8 @@ class Showcase(tk.Tk):
         self.geometry("1180x760")
         self.minsize(1000, 640)
         self.q = queue.Queue()
+        self.cfg = config.load()
+        self.name = self.cfg["name"]
         self.agent = None
         self.pending_ask = False
         self.busy = False
@@ -177,16 +181,33 @@ class Showcase(tk.Tk):
             row = tk.Frame(box, bg=PANEL); row.pack(anchor="w", fill="x", pady=2)
             tk.Label(row, text=k, bg=PANEL, fg=MUTE, font=("Consolas", 9), width=11, anchor="w").pack(side="left")
             tk.Label(row, text=v, bg=PANEL, fg=TEXT, font=("Consolas", 9), anchor="w").pack(side="left")
+        # editable settings the assistant needs: place, the soul fact, the name
+        tk.Label(left, text="SETTINGS  (editable)", bg=PANEL, fg=MUTE, font=("Consolas", 8)).pack(anchor="w", padx=16, pady=(10, 2))
+        self.cfg_vars = {}
+        for key, label in [("home", "place"), ("soul", "about you"), ("name", "name")]:
+            row = tk.Frame(box.master, bg=PANEL); row.pack(anchor="w", fill="x", padx=16, pady=2)
+            tk.Label(row, text=label, bg=PANEL, fg=MUTE, font=("Consolas", 9), width=9, anchor="w").pack(side="left")
+            var = tk.StringVar(value=self.cfg[key])
+            ent = tk.Entry(row, textvariable=var, bg=PANEL2, fg=TEXT, insertbackground=TEXT, bd=0,
+                           highlightbackground=EDGE, highlightthickness=1, font=("Consolas", 9), width=16)
+            ent.pack(side="left", ipady=3)
+            self.cfg_vars[key] = var
+        tk.Button(left, text="save settings", command=self._save_cfg, bg=PANEL2, fg=ACCENT,
+                  activebackground=EDGE, activeforeground=ACCENT, bd=0, font=("Segoe UI", 9),
+                  cursor="hand2").pack(anchor="w", padx=16, pady=(4, 0))
+
         self.status = tk.Label(left, text="waking the model...", bg=PANEL, fg=WARM, font=("Segoe UI", 9), wraplength=200, justify="left")
         self.status.pack(anchor="w", padx=16, pady=(8, 16))
 
         # center: neurons + chat + input
         center = tk.Frame(self, bg=BG); center.grid(row=0, column=1, sticky="nsew", padx=6, pady=12)
-        center.rowconfigure(1, weight=1); center.columnconfigure(0, weight=1)
-        npanel = self._panel(center); npanel.grid(row=0, column=0, sticky="ew")
+        center.columnconfigure(0, weight=1)
+        center.rowconfigure(0, weight=6)   # neurons take the top ~60%
+        center.rowconfigure(1, weight=4)   # chat about 40%
+        npanel = self._panel(center); npanel.grid(row=0, column=0, sticky="nsew")
         tk.Label(npanel, text="THINKING", bg=PANEL, fg=MUTE, font=("Consolas", 8)).pack(anchor="w", padx=10, pady=(6, 0))
-        self.ncanvas = tk.Canvas(npanel, bg=PANEL, height=210, highlightthickness=0)
-        self.ncanvas.pack(fill="x", padx=6, pady=6)
+        self.ncanvas = tk.Canvas(npanel, bg=PANEL, height=360, highlightthickness=0)
+        self.ncanvas.pack(fill="both", expand=True, padx=6, pady=6)
         self.neurons = Neurons(self.ncanvas)
         self.ncanvas.bind("<Configure>", self._on_canvas)
 
@@ -251,7 +272,7 @@ class Showcase(tk.Tk):
             from pretrain.agent_tools import Env
             from .agent import Agent, load_tools
             env = Env(ROOT / "data" / "showcase_state.json", tools=load_tools())
-            a = Agent(env=env, tools=load_tools())
+            a = Agent(env=env, home=self.cfg["home"], soul=self.cfg["soul"], tools=load_tools())
             # wrap the hands and the thinking so the UI sees each step live
             _act = a.env.act
 
@@ -271,6 +292,18 @@ class Showcase(tk.Tk):
             self.q.put(("ready",))
         except Exception as ex:      # noqa: BLE001
             self.q.put(("loaderr", str(ex)[:200]))
+
+    def _save_cfg(self):
+        for k, var in self.cfg_vars.items():
+            self.cfg[k] = var.get().strip() or config.DEFAULTS[k]
+        config.save(self.cfg)
+        self.name = self.cfg["name"]
+        if self.agent is not None:
+            self.agent.home = self.cfg["home"]
+            self.agent.env.home = self.cfg["home"]
+            self.agent.soul = self.cfg["soul"]
+            self.agent.new_round()
+        self.status.config(text=f"settings saved. place is {self.cfg['home']}.", fg=GOOD)
 
     def _send(self):
         if self.busy or self.agent is None:
@@ -372,7 +405,7 @@ class Showcase(tk.Tk):
 
     def _say(self, who, text):
         self.chat.config(state="normal")
-        self.chat.insert("end", ("You  " if who == "you" else "Bee  "), who)
+        self.chat.insert("end", ("You  " if who == "you" else self.name + "  "), who)
         self.chat.insert("end", text + "\n", "msg")
         self.chat.config(state="disabled"); self.chat.see("end")
 

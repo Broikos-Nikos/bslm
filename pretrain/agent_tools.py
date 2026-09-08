@@ -512,6 +512,7 @@ class Env:
         self.last_list = None       # "youtube" or "library"
         self.playing = None
         self.next_backend = None    # the generator routes one search elsewhere
+        self.home = "Athens"        # used when a weather question names no place
 
     # helpers
     def _nth(self, items, n, what):
@@ -582,7 +583,15 @@ class Env:
         if name == "weather":
             if not self.online:
                 return "no forecast: offline"
-            return forecast(g(0), g(1, "today"), self.now)
+            place, day = g(0), g(1, "today")
+            # trained on questions that always named a place, so a place-less
+            # question ("whats the weather today") drops the day word into the
+            # place slot; recover by using the home location
+            if not place or resolve_day(place, self.now) is not None:
+                if resolve_day(place, self.now) is not None and (not g(1) or g(1) == place):
+                    day = place
+                place = self.home
+            return forecast(place, day, self.now)
         if name == "youtube":
             if not self.online:
                 return "search failed: offline"
