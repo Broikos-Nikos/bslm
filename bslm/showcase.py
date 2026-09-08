@@ -65,6 +65,16 @@ class Neurons:
 
     def build(self, w, h):
         self.c.delete("all")
+        self.cx, self.cy = w / 2, h / 2
+        # a soft circular gradient glowing from behind the network, no spin
+        R = max(w, h) * 0.6
+        steps = 26
+        for i in range(steps, 0, -1):
+            t = i / steps
+            col = self._mix(PANEL, ACCENT2, 0.22 * (1 - t))
+            r = R * t
+            self.c.create_oval(self.cx - r, self.cy - r * 0.8, self.cx + r, self.cy + r * 0.8,
+                               outline="", fill=col)
         self.nodes, self.node_layer, self.edges = [], [], []
         cols = len(self.layers)
         margin_x, margin_y = 70, 40
@@ -88,6 +98,8 @@ class Neurons:
         self.node_items = []
         for (x, y, g) in self.nodes:
             self.node_items.append(self.c.create_oval(x - 6, y - 6, x + 6, y + 6, outline="", fill=PANEL))
+        # a calm central core that breathes brighter while it thinks
+        self.core = self.c.create_oval(self.cx - 10, self.cy - 10, self.cx + 10, self.cy + 10, outline="", fill=ACCENT)
         self._built = True
 
     def fire(self, strength=1.0):
@@ -105,9 +117,15 @@ class Neurons:
     def step(self):
         if not self._built:
             return
-        self.phase += 0.06
+        self.phase += 0.045          # calm, no fast motion
         self.activity *= 0.94
         base = 0.25 + 0.75 * self.activity
+        # breathing core
+        import math as _m
+        breath = 0.5 + 0.5 * _m.sin(self.phase * 1.3)
+        cr = 9 + 5 * breath + 10 * self.activity
+        self.c.coords(self.core, self.cx - cr, self.cy - cr, self.cx + cr, self.cy + cr)
+        self.c.itemconfig(self.core, fill=self._mix(ACCENT, "#ffffff", 0.3 * self.activity))
         for ni, (x, y, g) in enumerate(self.nodes):
             tw = 0.5 + 0.5 * (0.5 + 0.5 * __import__("math").sin(self.phase + g * 6))
             lvl = min(1.0, base * tw)
@@ -202,8 +220,8 @@ class Showcase(tk.Tk):
         # center: neurons + chat + input
         center = tk.Frame(self, bg=BG); center.grid(row=0, column=1, sticky="nsew", padx=6, pady=12)
         center.columnconfigure(0, weight=1)
-        center.rowconfigure(0, weight=6)   # neurons take the top ~60%
-        center.rowconfigure(1, weight=4)   # chat about 40%
+        center.rowconfigure(0, weight=1)   # neurons take all the room left over
+        center.rowconfigure(1, weight=0)   # chat is a fixed height
         npanel = self._panel(center); npanel.grid(row=0, column=0, sticky="nsew")
         tk.Label(npanel, text="THINKING", bg=PANEL, fg=MUTE, font=("Consolas", 8)).pack(anchor="w", padx=10, pady=(6, 0))
         self.ncanvas = tk.Canvas(npanel, bg=PANEL, height=360, highlightthickness=0)
@@ -211,10 +229,15 @@ class Showcase(tk.Tk):
         self.neurons = Neurons(self.ncanvas)
         self.ncanvas.bind("<Configure>", self._on_canvas)
 
-        cpanel = self._panel(center); cpanel.grid(row=1, column=0, sticky="nsew", pady=(8, 8))
+        cpanel = self._panel(center, height=500); cpanel.grid(row=1, column=0, sticky="ew", pady=(8, 8))
+        cpanel.pack_propagate(False)          # keep the chat exactly 500px tall
+        scroll = tk.Scrollbar(cpanel, bd=0, highlightthickness=0, troughcolor=PANEL2)
+        scroll.pack(side="right", fill="y")
         self.chat = tk.Text(cpanel, bg=PANEL, fg=TEXT, bd=0, highlightthickness=0, wrap="word",
-                            font=("Segoe UI", 11), padx=14, pady=12, state="disabled", spacing1=2, spacing3=6)
-        self.chat.pack(fill="both", expand=True)
+                            font=("Segoe UI", 11), padx=14, pady=12, state="disabled", spacing1=2, spacing3=6,
+                            yscrollcommand=scroll.set)
+        self.chat.pack(side="left", fill="both", expand=True)
+        scroll.config(command=self.chat.yview)
         self.chat.tag_configure("you", foreground=ACCENT, font=("Segoe UI Semibold", 11))
         self.chat.tag_configure("bee", foreground=GOOD, font=("Segoe UI Semibold", 11))
         self.chat.tag_configure("msg", foreground=TEXT)
