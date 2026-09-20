@@ -9,6 +9,23 @@ generates itself.
 
 ![BSLM running, answering a live weather question](https://github.com/Broikos-Nikos/bslm/releases/download/assets/bslm-working.png)
 
+## The numbers
+
+It ships with its own benchmark rather than a claim. `AGENT_BENCHMARK.md` has the
+full table and the method.
+
+| | |
+|---|---|
+| **91.2%** | overall, 570 held out tasks, run in 4.7 minutes, against an 80% per family bar |
+| **68%** | open fact lookup, the one family that **fails** the bar, published rather than hidden |
+| **94.8%** | recovery, correct after a failed first attempt (n=58) |
+| **2.8%** | false delivery, delivered and wrong with no warning (n=563), against an under 3% bar |
+| **0.4%** | wasted steps, the same action repeated unchanged, over 792 steps |
+
+The 68% is the interesting one. The benchmark traces it to retrieval rather than to
+the model: the source quote the model read carried the answer in only 60% of findable
+facts, which is the ceiling a plain quoted answer would hit anyway.
+
 ## Start here
 
 The project grew in two stages, both from scratch:
